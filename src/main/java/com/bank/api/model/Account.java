@@ -4,6 +4,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 
 @Entity // 1. Tells Spring: "This class is a Database Table"
 public class Account {
@@ -14,6 +16,10 @@ public class Account {
 
     private String accountHolderName;
     private double balance;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 
     // --- CONSTRUCTORS ---
     // Spring needs an empty constructor to work
@@ -35,6 +41,14 @@ public class Account {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     public String getAccountHolderName() {

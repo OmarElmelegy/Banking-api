@@ -6,12 +6,14 @@ A secure RESTful API built with Spring Boot for managing bank accounts. This API
 
 - User registration and authentication (Basic Auth)
 - Spring Security with BCrypt password hashing
-- Create and manage bank accounts
-- Retrieve all accounts (authenticated users only)
-- Deposit money into accounts
-- Withdraw money from accounts
-- Transfer money between accounts
+- User-Account relationship (users own their accounts)
+- Create and manage bank accounts (user-specific)
+- Retrieve all user's accounts (authenticated users only)
+- Deposit money into owned accounts
+- Withdraw money from owned accounts
+- Transfer money between accounts (with ownership validation)
 - Balance validation and management
+- Authorization checks (users can only operate on their own accounts)
 - MySQL database for persistent data storage
 
 ## Technologies Used
@@ -146,9 +148,11 @@ Creates a new user account. **No authentication required.**
 ```http
 GET /api/accounts
 ```
-Returns a list of all bank accounts.
+Returns a list of all bank accounts **owned by the authenticated user**.
 
 **Authentication:** Required
+
+**Authorization:** Returns only accounts belonging to the authenticated user
 
 **Response Example:**
 ```json
@@ -156,7 +160,11 @@ Returns a list of all bank accounts.
   {
     "id": 1,
     "accountHolderName": "John Doe",
-    "balance": 1000.0
+    "balance": 1000.0,
+    "user": {
+      "id": 1,
+      "username": "john_doe"
+    }
   }
 ]
 ```
@@ -165,9 +173,11 @@ Returns a list of all bank accounts.
 ```http
 POST /api/accounts
 ```
-Creates a new bank account.
+Creates a new bank account **for the authenticated user**.
 
 **Authentication:** Required
+
+**Authorization:** Account is automatically linked to the authenticated user
 
 **Request Body:**
 ```json
@@ -182,8 +192,17 @@ Creates a new bank account.
 {
   "id": 1,
   "accountHolderName": "John Doe",
-  "balance": 1000.0
+  "balance": 1000.0,
+  "user": {
+    "id": 1,
+    "username": "john_doe"
+  }
 }
+```
+
+**Validation:**
+- Account holder name is required
+- Initial balance cannot be negative
 ```
 
 #### 3. Deposit Money
@@ -193,6 +212,8 @@ POST /api/accounts/{id}/deposit
 Deposits money into a specified account.
 
 **Authentication:** Required
+
+**Authorization:** Only the account owner can deposit money
 
 **Path Parameter:**
 - `id` - Account ID
@@ -213,6 +234,13 @@ Deposits money into a specified account.
 }
 ```
 
+**Error Response (Unauthorized):**
+```json
+{
+  "error": "You do not own this account"
+}
+```
+
 #### 4. Withdraw Money
 ```http
 POST /api/accounts/{id}/withdraw
@@ -220,6 +248,8 @@ POST /api/accounts/{id}/withdraw
 Withdraws money from a specified account.
 
 **Authentication:** Required
+
+**Authorization:** Only the account owner can withdraw money
 
 **Path Parameter:**
 - `id` - Account ID
@@ -240,11 +270,11 @@ Withdraws money from a specified account.
 }
 ```
 
-**Error Response (Insufficient Funds):**
-```json
-{
-  "error": "Account not found or insufficient funds"
-}
+**Error Responses:**
+- Unauthorized: `"You do not own this account"`
+- Insufficient funds: `"Insufficient funds"`
+- Invalid amount: `"Invalid amount"`
+- Account not found: `"Account not found or insufficient funds"`
 ```
 
 #### 5. Transfer Money Between Accounts
@@ -254,6 +284,8 @@ POST /api/accounts/transfer
 Transfers money from one account to another.
 
 **Authentication:** Required
+
+**Authorization:** Only the source account owner can initiate a transfer
 
 **Request Body:**
 ```json
@@ -270,6 +302,7 @@ Transfer successful
 ```
 
 **Error Responses:**
+- Unauthorized: `"You do not own this account"`
 - Missing parameters: `"Missing required parameters"`
 - Invalid amount: `"Amount must be positive"`
 - Same account transfer: `"Invalid destination Id, source and destination accounts cannot be the same"`
@@ -294,8 +327,9 @@ spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
 ### Schema
 Tables are automatically created by Hibernate based on JPA entities:
 
-- **users** - Stores user credentials (username, hashed password)
-- **accounts** - Stores bank account information (account holder name, balance)
+- **users** - Stores user credentials (id, username, hashed password)
+- **accounts** - Stores bank account information (id, account holder name, balance, user_id)
+  - Foreign key: `user_id` references `users(id)` (Many-to-One relationship)
 
 ## Testing
 
@@ -316,7 +350,8 @@ src/
 │   │       ├── config/
 │   │       │   └── SecurityConfig.java          # Spring Security configuration
 │   │       ├── controller/
-│   │       │   └── AccountController.java       # REST endpoints for accounts
+│   │       │   ├── AccountController.java       # REST endpoints for accounts
+│   │       │   └── AuthController.java          # REST endpoints for authentication
 │   │       ├── model/
 │   │       │   ├── Account.java                 # Account entity
 │   │       │   └── User.java                    # User entity
@@ -337,7 +372,10 @@ src/
 - **Spring Security** with HTTP Basic Authentication
 - **BCrypt password hashing** for secure password storage
 - **Authentication required** for all account operations
+- **Authorization checks** - users can only access and modify their own accounts
+- **Ownership validation** for deposits, withdrawals, and transfers
 - **Public registration endpoint** for new users
+- **User-Account relationship** - accounts are linked to users via foreign key
 - Role-based access control (USER role)
 
 ## Error Handling
@@ -345,11 +383,14 @@ src/
 The API handles the following error scenarios:
 
 - **Account not found** - Returns 404 error when trying to access non-existent account
+- **Unauthorized account access** - Returns error when user tries to access/modify accounts they don't own
 - **Invalid amount** - Returns 400 error for negative or zero amounts
 - **Insufficient funds** - Returns error when withdrawal/transfer amount exceeds account balance
+- **Invalid account data** - Validates account holder name and balance during creation
 - **Duplicate username** - Prevents registration with existing username
 - **Unauthorized access** - Returns 401 for unauthenticated requests
 - **Transfer validation** - Prevents transfers to the same account
+- **User not found** - Returns error when authenticated user doesn't exist in database
 
 ## Testing with Postman
 

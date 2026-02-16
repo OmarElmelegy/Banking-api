@@ -1,5 +1,6 @@
 package com.bank.api.controller;
 
+import java.security.Principal;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,14 +24,14 @@ public class AccountController {
     private AccountService service;
 
     @GetMapping
-    public ResponseEntity<List<Account>> getAllAccounts() {
-        return ResponseEntity.ok(service.getAllAccounts());
+    public ResponseEntity<List<Account>> getAllAccounts(Principal principal) {
+        return ResponseEntity.ok(service.getAllAccounts(principal.getName()));
     }
 
     @PostMapping
-    public ResponseEntity<Account> createAccount(@RequestBody Account newAccount) {
+    public ResponseEntity<Account> createAccount(@RequestBody Account newAccount, Principal principal) {
         try {
-            Account created = service.createAccount(newAccount);
+            Account created = service.createAccount(newAccount, principal);
             return ResponseEntity.status(HttpStatus.CREATED).body(created);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
@@ -38,13 +39,14 @@ public class AccountController {
     }
 
     @PostMapping("/{id}/deposit")
-    public ResponseEntity<?> deposit(@PathVariable Long id, @RequestBody java.util.Map<String, Double> request) {
+    public ResponseEntity<?> deposit(@PathVariable Long id, @RequestBody java.util.Map<String, Double> request,
+            Principal principal) {
         try {
             Double amount = request.get("amount");
             if (amount == null || amount <= 0) {
                 return ResponseEntity.badRequest().body("Invalid amount");
             }
-            Account account = service.deposit(id, amount);
+            Account account = service.deposit(id, amount, principal);
             return ResponseEntity.ok(account);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -53,13 +55,14 @@ public class AccountController {
     }
 
     @PostMapping("/{id}/withdraw")
-    public ResponseEntity<?> withdraw(@PathVariable Long id, @RequestBody java.util.Map<String, Double> request) {
+    public ResponseEntity<?> withdraw(@PathVariable Long id, @RequestBody java.util.Map<String, Double> request,
+            Principal principal) {
         try {
             Double amount = request.get("amount");
             if (amount == null || amount <= 0) {
                 return ResponseEntity.badRequest().body("Invalid amount");
             }
-            Account account = service.withdraw(id, amount);
+            Account account = service.withdraw(id, amount, principal);
             return ResponseEntity.ok(account);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -70,7 +73,7 @@ public class AccountController {
     }
 
     @PostMapping("/transfer")
-    public ResponseEntity<String> transfer(@RequestBody java.util.Map<String, Object> request) {
+    public ResponseEntity<String> transfer(@RequestBody java.util.Map<String, Object> request, Principal principal) {
         try {
             // Validate input
             if (!request.containsKey("fromId") || !request.containsKey("toId") || !request.containsKey("amount")) {
@@ -89,7 +92,7 @@ public class AccountController {
                 return ResponseEntity.badRequest()
                         .body("Invalid destination Id, source and destination accounts cannot be the same");
             }
-            service.transfer(sourceId, distId, amount);
+            service.transfer(sourceId, distId, amount, principal);
             return ResponseEntity.ok("Transfer successful");
 
         } catch (NumberFormatException e) {

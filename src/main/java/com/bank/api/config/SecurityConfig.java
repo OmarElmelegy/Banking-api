@@ -26,7 +26,8 @@ public class SecurityConfig {
         // Step 2: Set up authorization rules
         http.authorizeHttpRequests(authorizationConfigurer -> {
             authorizationConfigurer
-                    .requestMatchers("/api/users/register").permitAll()
+                    .requestMatchers("/api/auth/register").permitAll()
+
                     .anyRequest().authenticated();
         });
 
