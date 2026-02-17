@@ -12,11 +12,10 @@ import com.bank.api.model.User;
 import com.bank.api.repository.UserRepository;
 
 @Service
-public class MyUserDetailsService implements UserDetailsService{
+public class MyUserDetailsService implements UserDetailsService {
 
     @Autowired
     private UserRepository repository;
-
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
@@ -28,10 +27,10 @@ public class MyUserDetailsService implements UserDetailsService{
         User user = userOptional.get();
 
         return org.springframework.security.core.userdetails.User
-        .withUsername(user.getUsername())
-        .password(user.getPassword())
-        .roles("USER") // Hardcode this role for now
-        .build();
+                .withUsername(user.getUsername())
+                .password(user.getPassword())
+                .roles(user.getRole())
+                .build();
     }
-    
+
 }

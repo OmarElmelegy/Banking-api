@@ -4,8 +4,10 @@ A secure RESTful API built with Spring Boot for managing bank accounts. This API
 
 ## Features
 
-- User registration and authentication (Basic Auth)
+- **JWT-based authentication** (stateless, token-based)
+- User registration and login with JWT token generation
 - Spring Security with BCrypt password hashing
+- **Role-based access control** (USER and ADMIN roles)
 - User-Account relationship (users own their accounts)
 - Create and manage bank accounts (user-specific)
 - Retrieve all user's accounts (authenticated users only)
@@ -14,6 +16,7 @@ A secure RESTful API built with Spring Boot for managing bank accounts. This API
 - Transfer money between accounts (with ownership validation)
 - Balance validation and management
 - Authorization checks (users can only operate on their own accounts)
+- **Admin endpoints** for privileged operations
 - MySQL database for persistent data storage
 
 ## Technologies Used
@@ -23,6 +26,7 @@ A secure RESTful API built with Spring Boot for managing bank accounts. This API
 - **Spring Web MVC** - REST API development
 - **Spring Data JPA** - Database interaction and ORM
 - **Spring Security** - Authentication and authorization
+- **JWT (JSON Web Tokens)** - Stateless authentication (jjwt 0.11.5)
 - **MySQL 8.0+** - Relational database
 - **BCrypt** - Password hashing
 - **Maven** - Dependency management and build tool
@@ -77,13 +81,17 @@ The application will start on `http://localhost:8080`
 
 ## Authentication
 
-This API uses **HTTP Basic Authentication**. All endpoints (except user registration) require authentication.
+This API uses **JWT (JSON Web Token) authentication**. The authentication flow is:
 
-### Register a New User
+1. Register a new user
+2. Login to receive a JWT token
+3. Include the JWT token in the Authorization header for all subsequent requests
+
+### 1. Register a New User
 First, create a user account:
 
 ```bash
-curl -X POST http://localhost:8080/api/users/register \
+curl -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "username": "john_doe",
@@ -91,38 +99,59 @@ curl -X POST http://localhost:8080/api/users/register \
   }'
 ```
 
-### Authenticate Requests
-For all subsequent requests, include Basic Auth credentials:
+**Response:**
+```json
+{
+  "id": 1,
+  "username": "john_doe",
+  "role": "ROLE_USER"
+}
+```
+
+### 2. Login to Get JWT Token
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "john_doe",
+    "password": "securePassword123"
+  }'
+```
+
+**Response:**
+```
+eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqb2huX2RvZSIsImlhdCI6MTcwOTg...
+```
+
+### 3. Use JWT Token for Authenticated Requests
+Include the token in the Authorization header with "Bearer " prefix:
 
 ```bash
-# Using curl
-curl -u john_doe:securePassword123 http://localhost:8080/api/accounts
-
-# Or using Authorization header
-curl -H "Authorization: Basic am9obl9kb2U6c2VjdXJlUGFzc3dvcmQxMjM=" \
+curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9..." \
      http://localhost:8080/api/accounts
 ```
 
 In **Postman**:
 1. Select the "Authorization" tab
-2. Choose "Basic Auth" as the type
-3. Enter your username and password
+2. Choose "Bearer Token" as the type
+3. Paste your JWT token
 
 ## API Endpoints
 
 ### Base URLs
 ```
-Authentication: http://localhost:8080/api/users
+Authentication: http://localhost:8080/api/auth
 Banking: http://localhost:8080/api/accounts
+Admin: http://localhost:8080/api/admin
 ```
 
 ### Authentication Endpoints
 
 #### Register New User (Public)
 ```http
-POST /api/users/register
+POST /api/auth/register
 ```
-Creates a new user account. **No authentication required.**
+Creates a new user account with USER role. **No authentication required.**
 
 **Request Body:**
 ```json
@@ -136,9 +165,34 @@ Creates a new user account. **No authentication required.**
 ```json
 {
   "id": 1,
-  "username": "john_doe"
+  "username": "john_doe",
+  "role": "ROLE_USER"
 }
 ```
+
+#### Login (Public)
+```http
+POST /api/auth/login
+```
+Authenticates user and returns a JWT token. **No authentication required.**
+
+**Request Body:**
+```json
+{
+  "username": "john_doe",
+  "password": "securePassword123"
+}
+```
+
+**Response:**
+```
+eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJqb2huX2RvZSIsImlhdCI6MTcwOTgzMjQwMCwiZXhwIjoxNzA5ODY4NDAwfQ...
+```
+
+**Token Details:**
+- Algorithm: HS256
+- Expiration: 10 hours from issuance
+- Subject: Username
 
 ### Account Management Endpoints
 
@@ -309,6 +363,53 @@ Transfer successful
 - Account not found: `"Transfer failed: Sending Account not found"` or `"Transfer failed: Receiving Account not found"`
 - Insufficient funds: `"Transfer failed: Source Account does not have enough balance"`
 
+### Admin Endpoints
+
+**Note:** All admin endpoints require ADMIN role.
+
+#### Get All Accounts (Admin Only)
+```http
+GET /api/admin/accounts
+```
+Returns all bank accounts in the system (not just the authenticated user's accounts).
+
+**Authentication:** Required (JWT)
+
+**Authorization:** ADMIN role required
+
+**Response Example:**
+```json
+[
+  {
+    "id": 1,
+    "accountHolderName": "John Doe",
+    "balance": 1000.0,
+    "user": {
+      "id": 1,
+      "username": "john_doe",
+      "role": "ROLE_USER"
+    }
+  },
+  {
+    "id": 2,
+    "accountHolderName": "Jane Smith",
+    "balance": 2500.0,
+    "user": {
+      "id": 2,
+      "username": "jane_smith",
+      "role": "ROLE_USER"
+    }
+  }
+]
+```
+
+**Error Response (Forbidden):**
+```json
+{
+  "error": "Access Denied"
+}
+```
+
 ## Database Configuration
 
 The application uses **MySQL** for persistent data storage.
@@ -327,8 +428,10 @@ spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
 ### Schema
 Tables are automatically created by Hibernate based on JPA entities:
 
-- **users** - Stores user credentials (id, username, hashed password)
-- **accounts** - Stores bank account information (id, account holder name, balance, user_id)
+- **users** - Stores user credentials and roles
+  - Columns: `id`, `username` (unique), `password` (BCrypt hashed), `role`
+- **accounts** - Stores bank account information
+  - Columns: `id`, `account_holder_name`, `balance`, `user_id`
   - Foreign key: `user_id` references `users(id)` (Many-to-One relationship)
 
 ## Testing
@@ -351,13 +454,17 @@ src/
 │   │       │   └── SecurityConfig.java          # Spring Security configuration
 │   │       ├── controller/
 │   │       │   ├── AccountController.java       # REST endpoints for accounts
-│   │       │   └── AuthController.java          # REST endpoints for authentication
+│   │       │   ├── AuthController.java          # REST endpoints for authentication
+│   │       │   └── UserController.java          # Admin endpoints
 │   │       ├── model/
 │   │       │   ├── Account.java                 # Account entity
 │   │       │   └── User.java                    # User entity
 │   │       ├── repository/
 │   │       │   ├── AccountRepository.java       # Account data access layer
 │   │       │   └── UserRepository.java          # User data access layer
+│   │       ├── security/
+│   │       │   ├── JwtAuthenticationFilter.java # JWT filter for request authentication
+│   │       │   └── JwtUtil.java                 # JWT token generation and validation
 │   │       └── service/
 │   │           ├── AccountService.java          # Account business logic
 │   │           └── MyUserDetailsService.java    # User authentication service
@@ -369,14 +476,19 @@ src/
 
 ## Security Features
 
-- **Spring Security** with HTTP Basic Authentication
+- **JWT (JSON Web Token) authentication** - Stateless authentication mechanism
+- **Spring Security** with custom JWT filter
 - **BCrypt password hashing** for secure password storage
+- **Stateless session management** - No server-side sessions
+- **Token expiration** - JWT tokens valid for 10 hours
+- **Role-based access control (RBAC)** - USER and ADMIN roles
+- **Method-level security** with `@PreAuthorize` annotations
 - **Authentication required** for all account operations
 - **Authorization checks** - users can only access and modify their own accounts
 - **Ownership validation** for deposits, withdrawals, and transfers
-- **Public registration endpoint** for new users
+- **Public endpoints** for registration and login
 - **User-Account relationship** - accounts are linked to users via foreign key
-- Role-based access control (USER role)
+- **Admin-only endpoints** protected by role verification
 
 ## Error Handling
 
@@ -395,27 +507,36 @@ The API handles the following error scenarios:
 ## Testing with Postman
 
 1. **Register a user**:
-   - POST to `http://localhost:8080/api/users/register`
+   - POST to `http://localhost:8080/api/auth/register`
    - Body: `{"username": "testuser", "password": "password123"}`
 
-2. **Configure authentication**:
-   - Go to Authorization tab
-   - Select "Basic Auth"
-   - Enter username: `testuser`, password: `password123`
+2. **Login to get JWT token**:
+   - POST to `http://localhost:8080/api/auth/login`
+   - Body: `{"username": "testuser", "password": "password123"}`
+   - Copy the returned token
 
-3. **Test account operations**:
+3. **Configure authentication**:
+   - Go to Authorization tab
+   - Select "Bearer Token"
+   - Paste the JWT token
+
+4. **Test account operations**:
    - Create account: POST `/api/accounts`
    - Get accounts: GET `/api/accounts`
    - Deposit: POST `/api/accounts/1/deposit`
    - Withdraw: POST `/api/accounts/1/withdraw`
    - Transfer: POST `/api/accounts/transfer`
 
+5. **Test admin operations** (requires ADMIN role):
+   - Get all accounts: GET `/api/admin/accounts`
+
 ## Future Enhancements
 
 Potential improvements for this project:
 
-- Add JWT token-based authentication
-- Implement role-based access (ADMIN, USER)
+- ✅ ~~JWT token-based authentication~~ (Implemented)
+- ✅ ~~Role-based access control (ADMIN, USER)~~ (Implemented)
+- Add refresh token mechanism
 - Add transaction history and audit logging
 - Implement account types (savings, checking)
 - Add interest calculation for savings accounts
@@ -425,6 +546,8 @@ Potential improvements for this project:
 - Email notifications for transactions
 - Multi-currency support
 - Account statements generation (PDF)
+- Token refresh endpoint
+- Password reset functionality
 
 ## License
 

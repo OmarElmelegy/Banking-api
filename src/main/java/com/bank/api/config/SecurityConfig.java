@@ -1,16 +1,29 @@
 package com.bank.api.config;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import com.bank.api.security.JwtAuthenticationFilter;
 
 @EnableWebSecurity
+@EnableMethodSecurity
 @Configuration
 public class SecurityConfig {
+
+    @Autowired
+    JwtAuthenticationFilter jwtAuthFilter;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -18,26 +31,21 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        // Step 1: Disable CSRF
-        http.csrf(csrfConfigurer -> {
-            csrfConfigurer.disable();
-        });
+        http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .anyRequest().authenticated())
+                // STATLESS SESSION (New!)
+                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // ADD JWT FILTER (New!)
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
-        // Step 2: Set up authorization rules
-        http.authorizeHttpRequests(authorizationConfigurer -> {
-            authorizationConfigurer
-                    .requestMatchers("/api/auth/register").permitAll()
+        return http.build();
+    }
 
-                    .anyRequest().authenticated();
-        });
-
-        // Step 3: Enable Basic Authentication
-        http.httpBasic(basicAuthConfigurer -> {
-            // Use defaults, no customization needed
-        });
-
-        // Step 4: Build and return
-        SecurityFilterChain chain = http.build();
-        return chain;
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) {
+        return config.getAuthenticationManager();
     }
 }
