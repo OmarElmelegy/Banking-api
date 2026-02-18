@@ -2,6 +2,18 @@
 
 A secure RESTful API built with Spring Boot for managing bank accounts. This API provides comprehensive banking operations including user authentication, account management, deposits, withdrawals, and money transfers with Spring Security integration.
 
+## Architecture Overview
+
+![Banking API Architecture](/docs/Banking%20API%20Architecture.png)
+
+The system follows a layered architecture pattern with clear separation of concerns:
+- **Security Layer**: JWT authentication filter, token validation, and configuration
+- **Controller Layer**: REST endpoints for authentication, accounts, and admin operations
+- **Service Layer**: Business logic, validation, and authorization checks
+- **Repository Layer**: Data access using Spring Data JPA
+- **Model Layer**: Entity models with relationships
+- **Database**: MySQL for persistent storage
+
 ## Features
 
 - **JWT-based authentication** (stateless, token-based)
@@ -14,10 +26,14 @@ A secure RESTful API built with Spring Boot for managing bank accounts. This API
 - Deposit money into owned accounts
 - Withdraw money from owned accounts
 - Transfer money between accounts (with ownership validation)
+- **Transaction tracking and history** for all financial operations
+- Transaction logging for deposits, withdrawals, and transfers
+- Retrieve transaction history for any account
 - Balance validation and management
 - Authorization checks (users can only operate on their own accounts)
 - **Admin endpoints** for privileged operations
 - MySQL database for persistent data storage
+- **BigDecimal precision** for accurate monetary calculations
 
 ## Technologies Used
 
@@ -363,6 +379,78 @@ Transfer successful
 - Account not found: `"Transfer failed: Sending Account not found"` or `"Transfer failed: Receiving Account not found"`
 - Insufficient funds: `"Transfer failed: Source Account does not have enough balance"`
 
+#### 6. Get Transaction History
+```http
+GET /api/accounts/{id}/transactions
+```
+Retrieves all transactions associated with a specific account (as source or target).
+
+**Authentication:** Required
+
+**Authorization:** Only the account owner can view transaction history
+
+**Path Parameter:**
+- `id` - Account ID
+
+**Response Example:**
+```json
+[
+  {
+    "id": 1,
+    "amount": 500.00,
+    "type": "DEPOSIT",
+    "timestamp": "2026-02-18T10:30:00",
+    "sourceAccount": null,
+    "targetAccount": {
+      "id": 1,
+      "accountHolderName": "John Doe"
+    },
+    "initiator": {
+      "id": 1,
+      "username": "john_doe"
+    }
+  },
+  {
+    "id": 2,
+    "amount": 200.00,
+    "type": "WITHDRAWAL",
+    "timestamp": "2026-02-18T11:15:00",
+    "sourceAccount": {
+      "id": 1,
+      "accountHolderName": "John Doe"
+    },
+    "targetAccount": null,
+    "initiator": {
+      "id": 1,
+      "username": "john_doe"
+    }
+  },
+  {
+    "id": 3,
+    "amount": 300.00,
+    "type": "TRANSFER",
+    "timestamp": "2026-02-18T12:00:00",
+    "sourceAccount": {
+      "id": 1,
+      "accountHolderName": "John Doe"
+    },
+    "targetAccount": {
+      "id": 2,
+      "accountHolderName": "Jane Smith"
+    },
+    "initiator": {
+      "id": 1,
+      "username": "john_doe"
+    }
+  }
+]
+```
+
+**Transaction Types:**
+- `DEPOSIT` - Money added to account (no source account)
+- `WITHDRAWAL` - Money removed from account (no target account)
+- `TRANSFER` - Money moved between accounts (both source and target present)
+
 ### Admin Endpoints
 
 **Note:** All admin endpoints require ADMIN role.
@@ -410,6 +498,49 @@ Returns all bank accounts in the system (not just the authenticated user's accou
 }
 ```
 
+#### Get All Users (Admin Only)
+```http
+GET /api/admin/users
+```
+Returns all users in the system.
+
+**Authentication:** Required (JWT)
+
+**Authorization:** ADMIN role required
+
+**Response Example:**
+```json
+[
+  {
+    "id": 1,
+    "username": "john_doe",
+    "password": "$2a$10$...", 
+    "role": "ROLE_USER"
+  },
+  {
+    "id": 2,
+    "username": "jane_smith",
+    "password": "$2a$10$...",
+    "role": "ROLE_USER"
+  },
+  {
+    "id": 3,
+    "username": "admin",
+    "password": "$2a$10$...",
+    "role": "ROLE_ADMIN"
+  }
+]
+```
+
+**Note:** Passwords are returned as BCrypt hashes (cannot be reversed).
+
+**Error Response (Forbidden):**
+```json
+{
+  "error": "Access Denied"
+}
+```
+
 ## Database Configuration
 
 The application uses **MySQL** for persistent data storage.
@@ -433,6 +564,12 @@ Tables are automatically created by Hibernate based on JPA entities:
 - **accounts** - Stores bank account information
   - Columns: `id`, `account_holder_name`, `balance`, `user_id`
   - Foreign key: `user_id` references `users(id)` (Many-to-One relationship)
+- **transactions** - Stores transaction history for all operations
+  - Columns: `id`, `amount` (BigDecimal), `type` (DEPOSIT/WITHDRAWAL/TRANSFER), `timestamp`, `source_account_id`, `target_account_id`, `initiator_id`
+  - Foreign keys: 
+    - `source_account_id` references `accounts(id)` (Many-to-One)
+    - `target_account_id` references `accounts(id)` (Many-to-One)
+    - `initiator_id` references `users(id)` (Many-to-One, required)
 
 ## Testing
 
@@ -458,16 +595,19 @@ src/
 │   │       │   └── UserController.java          # Admin endpoints
 │   │       ├── model/
 │   │       │   ├── Account.java                 # Account entity
+│   │       │   ├── Transaction.java             # Transaction entity (NEW)
 │   │       │   └── User.java                    # User entity
 │   │       ├── repository/
 │   │       │   ├── AccountRepository.java       # Account data access layer
+│   │       │   ├── TransactionRepository.java   # Transaction data access layer (NEW)
 │   │       │   └── UserRepository.java          # User data access layer
 │   │       ├── security/
 │   │       │   ├── JwtAuthenticationFilter.java # JWT filter for request authentication
 │   │       │   └── JwtUtil.java                 # JWT token generation and validation
 │   │       └── service/
 │   │           ├── AccountService.java          # Account business logic
-│   │           └── MyUserDetailsService.java    # User authentication service
+│   │           ├── MyUserDetailsService.java    # User authentication service
+│   │           └── UserService.java             # User management service (NEW)
 │   └── resources/
 │       └── application.properties               # Application configuration
 └── test/
@@ -529,6 +669,7 @@ The API handles the following error scenarios:
 
 5. **Test admin operations** (requires ADMIN role):
    - Get all accounts: GET `/api/admin/accounts`
+   - Get all users: GET `/api/admin/users`
 
 ## Future Enhancements
 
@@ -536,8 +677,8 @@ Potential improvements for this project:
 
 - ✅ ~~JWT token-based authentication~~ (Implemented)
 - ✅ ~~Role-based access control (ADMIN, USER)~~ (Implemented)
+- ✅ ~~Transaction history and audit logging~~ (Implemented)
 - Add refresh token mechanism
-- Add transaction history and audit logging
 - Implement account types (savings, checking)
 - Add interest calculation for savings accounts
 - Enhanced exception handling with global error handler

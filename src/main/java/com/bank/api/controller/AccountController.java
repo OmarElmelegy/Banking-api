@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.bank.api.model.Account;
+import com.bank.api.model.Transaction;
 import com.bank.api.service.AccountService;
 
 @RestController
@@ -103,5 +104,12 @@ public class AccountController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Transfer failed: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/{id}/transactions")
+    public ResponseEntity<List<Transaction>> getHistory(@PathVariable Long id, Principal principal) {
+        List<Transaction> history = service.getTransationHistory(id, principal.getName());
+
+        return ResponseEntity.ok(history);
     }
 }

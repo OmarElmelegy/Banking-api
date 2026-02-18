@@ -6,8 +6,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 @Entity // 1. Tells Spring: "This class is a Database Table"
+@Table(name = "accounts")
 public class Account {
 
     @Id // 2. Tells Spring: "This is the Primary Key"

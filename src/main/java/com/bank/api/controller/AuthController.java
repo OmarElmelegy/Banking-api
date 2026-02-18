@@ -32,6 +32,10 @@ public class AuthController {
 
     @PostMapping("/register")
     public User register(@RequestBody User user) {
+        // Check if user already exists
+        if (userRepository.findByUsername(user.getUsername()).isPresent()) {
+            throw new RuntimeException("Username already exists");
+        }
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setRole("ROLE_USER");
@@ -40,13 +44,17 @@ public class AuthController {
 
     @PostMapping("/login")
     public String login(@RequestBody User loginRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(loginRequest.getUsername(), loginRequest.getPassword()));
 
-        if (authentication.isAuthenticated()) {
-            return jwtUtil.generateToken(loginRequest.getUsername());
-        } else {
-            throw new RuntimeException("Invalid access");
+            if (authentication.isAuthenticated()) {
+                return jwtUtil.generateToken(loginRequest.getUsername());
+            } else {
+                throw new RuntimeException("Invalid credentials");
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Authentication failed: " + e.getMessage());
         }
     }
 }

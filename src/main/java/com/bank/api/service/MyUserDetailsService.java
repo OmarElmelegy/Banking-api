@@ -26,10 +26,11 @@ public class MyUserDetailsService implements UserDetailsService {
 
         User user = userOptional.get();
 
+        // Use authorities() since we store "ROLE_USER" with prefix
         return org.springframework.security.core.userdetails.User
                 .withUsername(user.getUsername())
                 .password(user.getPassword())
-                .roles(user.getRole())
+                .authorities(user.getRole())
                 .build();
     }
 
