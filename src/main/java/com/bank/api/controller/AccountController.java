@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bank.api.dto.TransactionResponseDTO;
 import com.bank.api.model.Account;
-import com.bank.api.model.Transaction;
 import com.bank.api.service.AccountService;
 
 @RestController
@@ -107,8 +107,8 @@ public class AccountController {
     }
 
     @GetMapping("/{id}/transactions")
-    public ResponseEntity<List<Transaction>> getHistory(@PathVariable Long id, Principal principal) {
-        List<Transaction> history = service.getTransationHistory(id, principal.getName());
+    public ResponseEntity<List<TransactionResponseDTO>> getHistory(@PathVariable Long id, Principal principal) {
+        List<TransactionResponseDTO> history = service.getTransationHistory(id, principal.getName());
 
         return ResponseEntity.ok(history);
     }

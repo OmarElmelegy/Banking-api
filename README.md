@@ -12,6 +12,8 @@ The system follows a layered architecture pattern with clear separation of conce
 - **Service Layer**: Business logic, validation, and authorization checks
 - **Repository Layer**: Data access using Spring Data JPA
 - **Model Layer**: Entity models with relationships
+- **DTO Layer**: Data Transfer Objects for API responses (prevents circular references)
+- **Mapper Layer**: Converts entities to DTOs for safe serialization
 - **Database**: MySQL for persistent storage
 
 ## Features
@@ -27,8 +29,10 @@ The system follows a layered architecture pattern with clear separation of conce
 - Withdraw money from owned accounts
 - Transfer money between accounts (with ownership validation)
 - **Transaction tracking and history** for all financial operations
+- **Balance snapshots** - Each transaction stores account balances at time of transaction
 - Transaction logging for deposits, withdrawals, and transfers
 - Retrieve transaction history for any account
+- **DTOs and Mappers** - Prevents circular reference issues in JSON serialization
 - Balance validation and management
 - Authorization checks (users can only operate on their own accounts)
 - **Admin endpoints** for privileged operations
@@ -400,10 +404,16 @@ Retrieves all transactions associated with a specific account (as source or targ
     "amount": 500.00,
     "type": "DEPOSIT",
     "timestamp": "2026-02-18T10:30:00",
+    "sourceHistoricalBalance": null,
+    "targetHistoricalBalance": 1500.00,
     "sourceAccount": null,
     "targetAccount": {
       "id": 1,
-      "accountHolderName": "John Doe"
+      "accountHolderName": "John Doe",
+      "user": {
+        "id": 1,
+        "username": "john_doe"
+      }
     },
     "initiator": {
       "id": 1,
@@ -415,9 +425,15 @@ Retrieves all transactions associated with a specific account (as source or targ
     "amount": 200.00,
     "type": "WITHDRAWAL",
     "timestamp": "2026-02-18T11:15:00",
+    "sourceHistoricalBalance": 1300.00,
+    "targetHistoricalBalance": null,
     "sourceAccount": {
       "id": 1,
-      "accountHolderName": "John Doe"
+      "accountHolderName": "John Doe",
+      "user": {
+        "id": 1,
+        "username": "john_doe"
+      }
     },
     "targetAccount": null,
     "initiator": {
@@ -430,13 +446,23 @@ Retrieves all transactions associated with a specific account (as source or targ
     "amount": 300.00,
     "type": "TRANSFER",
     "timestamp": "2026-02-18T12:00:00",
+    "sourceHistoricalBalance": 1000.00,
+    "targetHistoricalBalance": 2800.00,
     "sourceAccount": {
       "id": 1,
-      "accountHolderName": "John Doe"
+      "accountHolderName": "John Doe",
+      "user": {
+        "id": 1,
+        "username": "john_doe"
+      }
     },
     "targetAccount": {
       "id": 2,
-      "accountHolderName": "Jane Smith"
+      "accountHolderName": "Jane Smith",
+      "user": {
+        "id": 2,
+        "username": "jane_smith"
+      }
     },
     "initiator": {
       "id": 1,
@@ -445,6 +471,11 @@ Retrieves all transactions associated with a specific account (as source or targ
   }
 ]
 ```
+
+**Response Fields:**
+- `sourceHistoricalBalance` - Balance of source account after transaction (null for deposits)
+- `targetHistoricalBalance` - Balance of target account after transaction (null for withdrawals)
+- Account and user data returned as summary DTOs (prevents circular references)
 
 **Transaction Types:**
 - `DEPOSIT` - Money added to account (no source account)
@@ -565,11 +596,12 @@ Tables are automatically created by Hibernate based on JPA entities:
   - Columns: `id`, `account_holder_name`, `balance`, `user_id`
   - Foreign key: `user_id` references `users(id)` (Many-to-One relationship)
 - **transactions** - Stores transaction history for all operations
-  - Columns: `id`, `amount` (BigDecimal), `type` (DEPOSIT/WITHDRAWAL/TRANSFER), `timestamp`, `source_account_id`, `target_account_id`, `initiator_id`
+  - Columns: `id`, `amount` (BigDecimal), `type` (DEPOSIT/WITHDRAWAL/TRANSFER), `timestamp`, `source_account_id`, `target_account_id`, `source_balance_after`, `target_balance_after`, `initiator_id`
   - Foreign keys: 
     - `source_account_id` references `accounts(id)` (Many-to-One)
     - `target_account_id` references `accounts(id)` (Many-to-One)
     - `initiator_id` references `users(id)` (Many-to-One, required)
+  - Balance snapshots: `source_balance_after` and `target_balance_after` store account balances at time of transaction
 
 ## Testing
 
@@ -593,13 +625,19 @@ src/
 │   │       │   ├── AccountController.java       # REST endpoints for accounts
 │   │       │   ├── AuthController.java          # REST endpoints for authentication
 │   │       │   └── UserController.java          # Admin endpoints
+│   │       ├── dto/
+│   │       │   ├── AccountSummaryDTO.java       # Account data transfer object
+│   │       │   ├── TransactionResponseDTO.java  # Transaction response DTO
+│   │       │   └── UserSummaryDTO.java          # User summary DTO
+│   │       ├── mapper/
+│   │       │   └── TransactionMapper.java       # Entity to DTO mapper
 │   │       ├── model/
 │   │       │   ├── Account.java                 # Account entity
-│   │       │   ├── Transaction.java             # Transaction entity (NEW)
+│   │       │   ├── Transaction.java             # Transaction entity
 │   │       │   └── User.java                    # User entity
 │   │       ├── repository/
 │   │       │   ├── AccountRepository.java       # Account data access layer
-│   │       │   ├── TransactionRepository.java   # Transaction data access layer (NEW)
+│   │       │   ├── TransactionRepository.java   # Transaction data access layer
 │   │       │   └── UserRepository.java          # User data access layer
 │   │       ├── security/
 │   │       │   ├── JwtAuthenticationFilter.java # JWT filter for request authentication
@@ -607,7 +645,7 @@ src/
 │   │       └── service/
 │   │           ├── AccountService.java          # Account business logic
 │   │           ├── MyUserDetailsService.java    # User authentication service
-│   │           └── UserService.java             # User management service (NEW)
+│   │           └── UserService.java             # User management service
 │   └── resources/
 │       └── application.properties               # Application configuration
 └── test/
@@ -678,10 +716,13 @@ Potential improvements for this project:
 - ✅ ~~JWT token-based authentication~~ (Implemented)
 - ✅ ~~Role-based access control (ADMIN, USER)~~ (Implemented)
 - ✅ ~~Transaction history and audit logging~~ (Implemented)
+- ✅ ~~DTOs and Mappers for clean API responses~~ (Implemented)
+- ✅ ~~Balance snapshots in transaction history~~ (Implemented)
 - Add refresh token mechanism
+- Implement pagination for transaction history
 - Implement account types (savings, checking)
 - Add interest calculation for savings accounts
-- Enhanced exception handling with global error handler
+- Enhanced exception handling with global error handler (@ControllerAdvice)
 - API documentation with Swagger/OpenAPI
 - Rate limiting and request throttling
 - Email notifications for transactions
@@ -689,6 +730,8 @@ Potential improvements for this project:
 - Account statements generation (PDF)
 - Token refresh endpoint
 - Password reset functionality
+- Transaction search and filtering
+- Scheduled jobs for interest calculations
 
 ## License
 

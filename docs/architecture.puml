@@ -23,6 +23,14 @@ skinparam component {
   BorderColor<<model>> #D68910
   FontColor<<model>> #FFFFFF
   
+  BackgroundColor<<dto>> #E67E22
+  BorderColor<<dto>> #CA6F1E
+  FontColor<<dto>> #FFFFFF
+  
+  BackgroundColor<<mapper>> #16A085
+  BorderColor<<mapper>> #138D75
+  FontColor<<mapper>> #FFFFFF
+  
   BackgroundColor<<security>> #9B59B6
   BorderColor<<security>> #8E44AD
   FontColor<<security>> #FFFFFF
@@ -54,6 +62,16 @@ rectangle "Service Layer" #ECF0F1 {
   component [AccountService] <<service>>
   component [UserService] <<service>>
   component [MyUserDetailsService] <<service>>
+}
+
+rectangle "Mapper Layer" #ECF0F1 {
+  component [TransactionMapper] <<mapper>>
+}
+
+rectangle "DTO Layer" #ECF0F1 {
+  component [TransactionResponseDTO] <<dto>>
+  component [AccountSummaryDTO] <<dto>>
+  component [UserSummaryDTO] <<dto>>
 }
 
 rectangle "Repository Layer" #ECF0F1 {
@@ -101,8 +119,22 @@ UserController -down-> UserService : getAllUsers()
 AccountService -down-> AccountRepository
 AccountService -down-> UserRepository : find user
 AccountService -down-> TransactionRepository : log transactions
+AccountService -down-> TransactionMapper : transform to DTO
 UserService -down-> UserRepository
 MyUserDetailsService -down-> UserRepository
+
+' Mapper to DTOs
+TransactionMapper .down.> TransactionResponseDTO : creates
+TransactionMapper .down.> AccountSummaryDTO : creates
+TransactionMapper .down.> UserSummaryDTO : creates
+
+' Mapper to Models
+TransactionMapper .left.> Transaction : reads
+TransactionMapper .left.> Account : reads
+TransactionMapper .left.> User : reads
+
+' Controllers return DTOs
+AccountController .down.> TransactionResponseDTO : returns
 
 ' Repositories to Database
 AccountRepository -down-> AccountsDB : JPA/Hibernate
@@ -127,6 +159,8 @@ TransactionsDB .right.> UsersDB : FK: initiator_id
 legend top left
   |<#3498DB>  | Controller Layer |
   |<#2ECC71>  | Service Layer |
+  |<#16A085>  | Mapper Layer |
+  |<#E67E22>  | DTO Layer |
   |<#E74C3C>  | Repository Layer |
   |<#F39C12>  | Model Layer |
   |<#9B59B6>  | Security Components |
