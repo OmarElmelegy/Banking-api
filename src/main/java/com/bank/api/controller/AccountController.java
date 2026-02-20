@@ -1,7 +1,9 @@
 package com.bank.api.controller;
 
+import java.math.BigDecimal;
 import java.security.Principal;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -13,7 +15,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bank.api.dto.AccountResponseDTO;
+import com.bank.api.dto.DepositRequestDTO;
 import com.bank.api.dto.TransactionResponseDTO;
+import com.bank.api.dto.TransferRequestDTO;
+import com.bank.api.dto.WithdrawRequestDTO;
+import com.bank.api.mapper.AccountResponseMapper;
 import com.bank.api.model.Account;
 import com.bank.api.service.AccountService;
 
@@ -25,29 +32,39 @@ public class AccountController {
     private AccountService service;
 
     @GetMapping
-    public ResponseEntity<List<Account>> getAllAccounts(Principal principal) {
-        return ResponseEntity.ok(service.getAllAccounts(principal.getName()));
+    public ResponseEntity<List<AccountResponseDTO>> getAllAccounts(Principal principal) {
+        List<Account> rawAccounts = service.getAllAccounts(principal.getName());
+
+        List<AccountResponseDTO> safeAccounts = rawAccounts.stream()
+                .map(AccountResponseMapper::toDto)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(safeAccounts);
     }
 
     @PostMapping
-    public ResponseEntity<Account> createAccount(@RequestBody Account newAccount, Principal principal) {
+    public ResponseEntity<AccountResponseDTO> createAccount(@RequestBody Account newAccount, Principal principal) {
         try {
             Account created = service.createAccount(newAccount, principal);
-            return ResponseEntity.status(HttpStatus.CREATED).body(created);
+            AccountResponseDTO responseDTO = AccountResponseMapper.toDto(created);
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(responseDTO);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
     }
 
     @PostMapping("/{id}/deposit")
-    public ResponseEntity<?> deposit(@PathVariable Long id, @RequestBody java.util.Map<String, Double> request,
+    public ResponseEntity<?> deposit(@PathVariable Long id, @RequestBody DepositRequestDTO request,
             Principal principal) {
         try {
-            Double amount = request.get("amount");
-            if (amount == null || amount <= 0) {
+            if (request.getAmount() == null) {
+                return ResponseEntity.badRequest().body("Amount is required");
+            }
+            if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
                 return ResponseEntity.badRequest().body("Invalid amount");
             }
-            Account account = service.deposit(id, amount, principal);
+            Account account = service.deposit(id, request.getAmount(), principal);
             return ResponseEntity.ok(account);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -56,14 +73,16 @@ public class AccountController {
     }
 
     @PostMapping("/{id}/withdraw")
-    public ResponseEntity<?> withdraw(@PathVariable Long id, @RequestBody java.util.Map<String, Double> request,
+    public ResponseEntity<?> withdraw(@PathVariable Long id, @RequestBody WithdrawRequestDTO request,
             Principal principal) {
         try {
-            Double amount = request.get("amount");
-            if (amount == null || amount <= 0) {
+            if (request.getAmount() == null) {
+                return ResponseEntity.badRequest().body("Amount is required");
+            }
+            if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
                 return ResponseEntity.badRequest().body("Invalid amount");
             }
-            Account account = service.withdraw(id, amount, principal);
+            Account account = service.withdraw(id, request.getAmount(), principal);
             return ResponseEntity.ok(account);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -74,30 +93,24 @@ public class AccountController {
     }
 
     @PostMapping("/transfer")
-    public ResponseEntity<String> transfer(@RequestBody java.util.Map<String, Object> request, Principal principal) {
+    public ResponseEntity<String> transfer(@RequestBody TransferRequestDTO request, Principal principal) {
         try {
             // Validate input
-            if (!request.containsKey("fromId") || !request.containsKey("toId") || !request.containsKey("amount")) {
+            if (request.getFromId() == null || request.getToId() == null || request.getAmount() == null) {
                 return ResponseEntity.badRequest().body("Missing required parameters");
             }
 
-            Long sourceId = Long.valueOf(request.get("fromId").toString());
-            Long distId = Long.valueOf(request.get("toId").toString());
-            double amount = Double.valueOf(request.get("amount").toString());
-
-            if (amount <= 0) {
+            if (request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
                 return ResponseEntity.badRequest().body("Amount must be positive");
             }
 
-            if (sourceId == distId) {
+            if (request.getFromId().equals(request.getToId())) {
                 return ResponseEntity.badRequest()
                         .body("Invalid destination Id, source and destination accounts cannot be the same");
             }
-            service.transfer(sourceId, distId, amount, principal);
+            service.transfer(request.getFromId(), request.getToId(), request.getAmount(), principal);
             return ResponseEntity.ok("Transfer successful");
 
-        } catch (NumberFormatException e) {
-            return ResponseEntity.badRequest().body("Invalid parameter format");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         } catch (RuntimeException e) {

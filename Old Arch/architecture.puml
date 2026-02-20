@@ -1,0 +1,136 @@
+@startuml Banking API Architecture
+
+!theme plain
+skinparam linetype ortho
+skinparam nodesep 120
+skinparam ranksep 120
+skinparam componentSpacing 40
+
+skinparam component {
+  BackgroundColor<<controller>> #3498DB
+  BorderColor<<controller>> #2980B9
+  FontColor<<controller>> #FFFFFF
+  
+  BackgroundColor<<service>> #2ECC71
+  BorderColor<<service>> #27AE60
+  FontColor<<service>> #FFFFFF
+  
+  BackgroundColor<<repository>> #E74C3C
+  BorderColor<<repository>> #C0392B
+  FontColor<<repository>> #FFFFFF
+  
+  BackgroundColor<<model>> #F39C12
+  BorderColor<<model>> #D68910
+  FontColor<<model>> #FFFFFF
+  
+  BackgroundColor<<security>> #9B59B6
+  BorderColor<<security>> #8E44AD
+  FontColor<<security>> #FFFFFF
+  
+  BackgroundColor<<config>> #1ABC9C
+  BorderColor<<config>> #16A085
+  FontColor<<config>> #FFFFFF
+}
+
+' ==================== LAYERS ====================
+
+rectangle "Client Layer" #ECF0F1 {
+  component [Client\n(Postman/Browser)] as Client #34495E
+}
+
+rectangle "Security & Config" #ECF0F1 {
+  component [SecurityConfig] <<config>>
+  component [JwtAuthenticationFilter] <<security>>
+  component [JwtUtil] <<security>>
+}
+
+rectangle "Controller Layer" #ECF0F1 {
+  component [AuthController] <<controller>>
+  component [AccountController] <<controller>>
+  component [UserController] <<controller>>
+}
+
+rectangle "Service Layer" #ECF0F1 {
+  component [AccountService] <<service>>
+  component [UserService] <<service>>
+  component [MyUserDetailsService] <<service>>
+}
+
+rectangle "Repository Layer" #ECF0F1 {
+  component [AccountRepository] <<repository>>
+  component [UserRepository] <<repository>>
+  component [TransactionRepository] <<repository>>
+}
+
+rectangle "Model Layer" #ECF0F1 {
+  component [Account] <<model>>
+  component [User] <<model>>
+  component [Transaction] <<model>>
+}
+
+database "MySQL Database" {
+  storage "accounts table" as AccountsDB
+  storage "users table" as UsersDB
+  storage "transactions table" as TransactionsDB
+}
+
+' ==================== CONNECTIONS ====================
+
+' Client to Security
+Client -down-> JwtAuthenticationFilter : HTTP Request\n(Bearer Token)
+Client -down-> AuthController : /api/auth/login\n/api/auth/register
+
+' Security Layer
+SecurityConfig -down-> JwtAuthenticationFilter : configures
+JwtAuthenticationFilter -down-> JwtUtil : validate token
+JwtAuthenticationFilter -down-> MyUserDetailsService : load user
+JwtAuthenticationFilter -down-> AccountController : authenticate
+JwtAuthenticationFilter -down-> UserController : authenticate
+
+' Auth Controller
+AuthController -down-> MyUserDetailsService : authenticate
+AuthController -down-> JwtUtil : generate token
+AuthController -down-> UserRepository : register user
+
+' Controllers to Services
+AccountController -down-> AccountService
+UserController -down-> AccountService : getAllAccountsAdmin()
+UserController -down-> UserService : getAllUsers()
+
+' Services to Repositories
+AccountService -down-> AccountRepository
+AccountService -down-> UserRepository : find user
+AccountService -down-> TransactionRepository : log transactions
+UserService -down-> UserRepository
+MyUserDetailsService -down-> UserRepository
+
+' Repositories to Database
+AccountRepository -down-> AccountsDB : JPA/Hibernate
+UserRepository -down-> UsersDB : JPA/Hibernate
+TransactionRepository -down-> TransactionsDB : JPA/Hibernate
+
+' Repositories to Models
+AccountRepository .left.> Account : manages
+UserRepository .left.> User : manages
+TransactionRepository .left.> Transaction : manages
+
+' Model Relationships
+Account -down-> User : @ManyToOne\n(user_id FK)
+Transaction -down-> Account : @ManyToOne\n(source/target_account_id FK)
+Transaction -down-> User : @ManyToOne\n(initiator_id FK)
+
+' Database Relationships
+AccountsDB .right.> UsersDB : FK: user_id
+TransactionsDB .up.> AccountsDB : FK: source_account_id,\ntarget_account_id
+TransactionsDB .right.> UsersDB : FK: initiator_id
+
+legend top left
+  |<#3498DB>  | Controller Layer |
+  |<#2ECC71>  | Service Layer |
+  |<#E74C3C>  | Repository Layer |
+  |<#F39C12>  | Model Layer |
+  |<#9B59B6>  | Security Components |
+  |<#1ABC9C>  | Configuration |
+endlegend
+
+@enduml

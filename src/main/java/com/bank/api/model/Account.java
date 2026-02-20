@@ -1,5 +1,8 @@
 package com.bank.api.model;
 
+import java.math.BigDecimal;
+
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -17,7 +20,9 @@ public class Account {
     private Long id;
 
     private String accountHolderName;
-    private double balance;
+
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal balance;
 
     @ManyToOne
     @JoinColumn(name = "user_id")
@@ -28,7 +33,7 @@ public class Account {
     public Account() {
     }
 
-    public Account(String accountHolderName, double balance) {
+    public Account(String accountHolderName, BigDecimal balance) {
         this.accountHolderName = accountHolderName;
         this.balance = balance;
     }
@@ -61,11 +66,11 @@ public class Account {
         this.accountHolderName = accountHolderName;
     }
 
-    public double getBalance() {
+    public BigDecimal getBalance() {
         return balance;
     }
 
-    public void setBalance(double balance) {
+    public void setBalance(BigDecimal balance) {
         this.balance = balance;
     }
 }

@@ -65,13 +65,19 @@ rectangle "Service Layer" #ECF0F1 {
 }
 
 rectangle "Mapper Layer" #ECF0F1 {
+  component [AccountResponseMapper] <<mapper>>
   component [TransactionMapper] <<mapper>>
+  component [UserMapper] <<mapper>>
 }
 
 rectangle "DTO Layer" #ECF0F1 {
-  component [TransactionResponseDTO] <<dto>>
+  component [AccountResponseDTO] <<dto>>
   component [AccountSummaryDTO] <<dto>>
+  component [TransactionResponseDTO] <<dto>>
   component [UserSummaryDTO] <<dto>>
+  component [DepositRequestDTO] <<dto>>
+  component [WithdrawRequestDTO] <<dto>>
+  component [TransferRequestDTO] <<dto>>
 }
 
 rectangle "Repository Layer" #ECF0F1 {
@@ -112,8 +118,10 @@ AuthController -down-> UserRepository : register user
 
 ' Controllers to Services
 AccountController -down-> AccountService
+AccountController -down-> AccountResponseMapper : transform to DTO
 UserController -down-> AccountService : getAllAccountsAdmin()
 UserController -down-> UserService : getAllUsers()
+UserController -down-> UserMapper : transform to DTO
 
 ' Services to Repositories
 AccountService -down-> AccountRepository
@@ -124,16 +132,28 @@ UserService -down-> UserRepository
 MyUserDetailsService -down-> UserRepository
 
 ' Mapper to DTOs
+AccountResponseMapper .down.> AccountResponseDTO : creates
+AccountResponseMapper .down.> UserSummaryDTO : uses
 TransactionMapper .down.> TransactionResponseDTO : creates
 TransactionMapper .down.> AccountSummaryDTO : creates
 TransactionMapper .down.> UserSummaryDTO : creates
+UserMapper .down.> UserSummaryDTO : creates
 
 ' Mapper to Models
+AccountResponseMapper .left.> Account : reads
+AccountResponseMapper .left.> User : reads
 TransactionMapper .left.> Transaction : reads
 TransactionMapper .left.> Account : reads
 TransactionMapper .left.> User : reads
+UserMapper .left.> User : reads
+
+' Controllers use Request DTOs
+AccountController .down.> DepositRequestDTO : accepts
+AccountController .down.> WithdrawRequestDTO : accepts
+AccountController .down.> TransferRequestDTO : accepts
 
 ' Controllers return DTOs
+AccountController .down.> AccountResponseDTO : returns
 AccountController .down.> TransactionResponseDTO : returns
 
 ' Repositories to Database

@@ -43,32 +43,44 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 1. Check if token exists
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            System.out.println("❌ No valid Authorization header found for: " + path);
             filterChain.doFilter(request, response);
             return;
         }
 
         // 2. Extract Token
         jwt = authHeader.substring(7); // Remove "Bearer "
-        username = jwtUtil.extractUsername(jwt);
+        System.out.println("🔑 JWT Token extracted for path: " + path);
 
-        // 3. Validate and Authenticate
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+        try {
+            username = jwtUtil.extractUsername(jwt);
+            System.out.println("👤 Username extracted: " + username);
 
-            if (jwtUtil.validateToken(jwt, userDetails.getUsername())) { // Note: Your validateToken signature might
-                                                                         // accept String, check JwtUtil
+            // 3. Validate and Authenticate
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
 
-                // Create the Authentication Object
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities());
+                if (jwtUtil.validateToken(jwt, userDetails.getUsername())) {
+                    // Create the Authentication Object
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities());
 
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
-                // Log the user in
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                    // Log the user in
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                    System.out.println("✅ Authentication successful for: " + username);
+                } else {
+                    System.out.println("❌ Token validation failed for: " + username);
+                }
+            } else if (username == null) {
+                System.out.println("❌ Username is null from token");
             }
+        } catch (Exception e) {
+            System.out.println("❌ Error processing JWT: " + e.getMessage());
+            e.printStackTrace();
         }
 
         // 4. Pass to next filter

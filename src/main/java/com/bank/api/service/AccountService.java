@@ -5,10 +5,13 @@ import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.bank.api.dto.TransactionResponseDTO;
+import com.bank.api.mapper.TransactionMapper;
 import com.bank.api.model.Account;
 import com.bank.api.model.Transaction;
 import com.bank.api.model.User;
@@ -39,7 +42,7 @@ public class AccountService {
             throw new RuntimeException("Account holder name is required");
         }
 
-        if (account.getBalance() < 0) {
+        if (account.getBalance().compareTo(BigDecimal.ZERO) < 0) {
             throw new RuntimeException("Initial balance cannot be negative");
         }
 
@@ -58,7 +61,8 @@ public class AccountService {
         return accountRepository.findAll();
     }
 
-    public Account deposit(Long id, double amount, Principal principal) {
+    @Transactional
+    public Account deposit(Long id, BigDecimal amount, Principal principal) {
         // Find the account
         Optional<Account> accountOptional = accountRepository.findById(id);
         if (!accountOptional.isPresent()) {
@@ -72,23 +76,25 @@ public class AccountService {
             throw new RuntimeException("You do not own this account");
         }
 
-        if (amount <= 0) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Invalid amount");
         }
 
         // Some math
-        double newBalance = account.getBalance() + amount;
+        BigDecimal newBalance = account.getBalance().add(amount);
         account.setBalance(newBalance);
 
         User initiator = userRepository.findByUsername(currentUsername)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Transaction depositTransaction = new Transaction(
-                BigDecimal.valueOf(amount),
+                amount,
                 Transaction.TransactionType.DEPOSIT, // Use enum, not String
                 LocalDateTime.now(),
                 null, // No source account for deposits
                 account, // Pass Account object, not ID
+                null,
+                newBalance,
                 initiator // User object
         );
 
@@ -98,7 +104,8 @@ public class AccountService {
         return accountRepository.save(account);
     }
 
-    public Account withdraw(Long id, double amount, Principal principal) {
+    @Transactional
+    public Account withdraw(Long id, BigDecimal amount, Principal principal) {
         // Find the account
         Optional<Account> accountOptional = accountRepository.findById(id);
         if (!accountOptional.isPresent()) {
@@ -112,25 +119,27 @@ public class AccountService {
             throw new RuntimeException("You do not own this account");
         }
 
-        if (amount <= 0) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Invalid amount");
         }
 
-        if (account.getBalance() < amount) {
+        if (account.getBalance().compareTo(amount) < 0) {
             throw new RuntimeException("Insufficient funds");
         }
 
-        double newBalance = account.getBalance() - amount;
+        BigDecimal newBalance = account.getBalance().subtract(amount);
         account.setBalance(newBalance);
 
         User initiator = userRepository.findByUsername(currentUsername)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Transaction withdrawalTransaction = new Transaction(
-                BigDecimal.valueOf(amount),
+                amount,
                 Transaction.TransactionType.WITHDRAWAL, // Use enum, not String
                 LocalDateTime.now(),
                 account,
+                null,
+                newBalance,
                 null,
                 initiator);
 
@@ -140,7 +149,7 @@ public class AccountService {
     }
 
     @Transactional
-    public void transfer(Long fromId, Long toId, double amount, Principal principal) {
+    public void transfer(Long fromId, Long toId, BigDecimal amount, Principal principal) {
         Optional<Account> sourceAccountOptional = accountRepository.findById(fromId);
         if (!sourceAccountOptional.isPresent()) {
             throw new RuntimeException("Sending Account not found");
@@ -160,29 +169,31 @@ public class AccountService {
 
         Account destinationAccount = destinationAccountOptional.get();
 
-        if (amount <= 0) {
+        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Invalid amount");
         }
 
-        if (sourceAccount.getBalance() < amount) {
+        if (sourceAccount.getBalance().compareTo(amount) < 0) {
             throw new RuntimeException("Source Account does not have enough balance");
         }
 
-        double newBalance = sourceAccount.getBalance() - amount;
-        sourceAccount.setBalance(newBalance);
+        BigDecimal sourceNewBalance = sourceAccount.getBalance().subtract(amount);
+        sourceAccount.setBalance(sourceNewBalance);
 
-        double oldBalance = destinationAccount.getBalance();
-        destinationAccount.setBalance(oldBalance + amount);
+        BigDecimal destinationNewBalance = destinationAccount.getBalance().add(amount);
+        destinationAccount.setBalance(destinationNewBalance);
 
         User initiator = userRepository.findByUsername(currentUsername)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Transaction transferTransaction = new Transaction(
-                BigDecimal.valueOf(amount),
+                amount,
                 Transaction.TransactionType.TRANSFER, // Use enum, not String
                 LocalDateTime.now(),
                 sourceAccount,
                 destinationAccount,
+                sourceNewBalance,
+                destinationNewBalance,
                 initiator);
 
         transactionRepository.save(transferTransaction);
@@ -191,14 +202,19 @@ public class AccountService {
         accountRepository.save(destinationAccount);
     }
 
-    public List<Transaction> getTransationHistory(Long accountId, String username) {
+    public List<TransactionResponseDTO> getTransationHistory(Long accountId, String username) {
         Account account = accountRepository.findById(accountId)
-        .orElseThrow(() -> new RuntimeException("Account not found"));
+                .orElseThrow(() -> new RuntimeException("Account not found"));
 
         if (!account.getUser().getUsername().equals(username)) {
             throw new RuntimeException("You do not own this account");
         }
 
-        return transactionRepository.findBySourceAccountIdOrTargetAccountIdOrderByTimeStampDesc(accountId, accountId);
+        List<Transaction> transactions = transactionRepository
+                .findBySourceAccountIdOrTargetAccountIdOrderByTimestampDesc(accountId);
+
+        return transactions.stream()
+                .map(TransactionMapper::toDTO)
+                .collect(Collectors.toList());
     }
 }

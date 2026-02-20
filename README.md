@@ -626,11 +626,17 @@ src/
 │   │       │   ├── AuthController.java          # REST endpoints for authentication
 │   │       │   └── UserController.java          # Admin endpoints
 │   │       ├── dto/
-│   │       │   ├── AccountSummaryDTO.java       # Account data transfer object
+│   │       │   ├── AccountResponseDTO.java      # Account response DTO
+│   │       │   ├── AccountSummaryDTO.java       # Account summary DTO
+│   │       │   ├── DepositRequestDTO.java       # Deposit request DTO
 │   │       │   ├── TransactionResponseDTO.java  # Transaction response DTO
-│   │       │   └── UserSummaryDTO.java          # User summary DTO
+│   │       │   ├── TransferRequestDTO.java      # Transfer request DTO
+│   │       │   ├── UserSummaryDTO.java          # User summary DTO
+│   │       │   └── WithdrawRequestDTO.java      # Withdraw request DTO
 │   │       ├── mapper/
-│   │       │   └── TransactionMapper.java       # Entity to DTO mapper
+│   │       │   ├── AccountResponseMapper.java   # Account to DTO mapper
+│   │       │   ├── TransactionMapper.java       # Transaction to DTO mapper
+│   │       │   └── UserMapper.java              # User to DTO mapper
 │   │       ├── model/
 │   │       │   ├── Account.java                 # Account entity
 │   │       │   ├── Transaction.java             # Transaction entity

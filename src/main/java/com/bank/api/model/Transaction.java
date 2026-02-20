@@ -45,6 +45,11 @@ public class Transaction {
     @JoinColumn(name = "target_account_id")
     private Account targetAccount;
 
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal sourceBalanceAfter;
+
+    @Column(nullable = false, precision = 19, scale = 2)
+    private BigDecimal targetBalanceAfter;
 
     @ManyToOne
     @JoinColumn(name = "initiator_id", nullable = false)
@@ -55,12 +60,15 @@ public class Transaction {
     }
 
     public Transaction(BigDecimal amount, TransactionType type, LocalDateTime timestamp,
-            Account sourceAccount, Account targetAccount, User initiator) {
+            Account sourceAccount, Account targetAccount, BigDecimal sourceBalanceAfter, BigDecimal targetBalanceAfter,
+            User initiator) {
         this.amount = amount;
         this.type = type;
         this.timestamp = timestamp;
         this.sourceAccount = sourceAccount;
         this.targetAccount = targetAccount;
+        this.sourceBalanceAfter = sourceBalanceAfter;
+        this.targetBalanceAfter = targetBalanceAfter;
         this.initiator = initiator;
     }
 
@@ -111,6 +119,22 @@ public class Transaction {
 
     public void setTargetAccount(Account targetAccount) {
         this.targetAccount = targetAccount;
+    }
+
+    public BigDecimal getSourceBalanceAfter() {
+        return sourceBalanceAfter;
+    }
+
+    public void setSourceBalanceAfter(BigDecimal sourceBalanceAfter) {
+        this.sourceBalanceAfter = sourceBalanceAfter;
+    }
+
+    public BigDecimal getTargetBalanceAfter() {
+        return targetBalanceAfter;
+    }
+
+    public void setTargetBalanceAfter(BigDecimal targetBalanceAfter) {
+        this.targetBalanceAfter = targetBalanceAfter;
     }
 
     public User getInitiator() {
