@@ -1,190 +1,142 @@
 @startuml Banking API Architecture
 
 !theme plain
-skinparam linetype ortho
-skinparam nodesep 120
-skinparam ranksep 120
-skinparam componentSpacing 40
+top to bottom direction
+skinparam nodesep 40
+skinparam ranksep 50
+skinparam padding 6
+skinparam defaultFontSize 13
+skinparam RectangleFontSize 14
+skinparam RectangleFontStyle bold
 
-skinparam component {
-  BackgroundColor<<controller>> #3498DB
-  BorderColor<<controller>> #2980B9
-  FontColor<<controller>> #FFFFFF
-  
-  BackgroundColor<<service>> #2ECC71
-  BorderColor<<service>> #27AE60
-  FontColor<<service>> #FFFFFF
-  
-  BackgroundColor<<repository>> #E74C3C
-  BorderColor<<repository>> #C0392B
-  FontColor<<repository>> #FFFFFF
-  
-  BackgroundColor<<model>> #F39C12
-  BorderColor<<model>> #D68910
-  FontColor<<model>> #FFFFFF
-  
-  BackgroundColor<<dto>> #E67E22
-  BorderColor<<dto>> #CA6F1E
-  FontColor<<dto>> #FFFFFF
-  
-  BackgroundColor<<mapper>> #16A085
-  BorderColor<<mapper>> #138D75
-  FontColor<<mapper>> #FFFFFF
-  
-  BackgroundColor<<security>> #9B59B6
-  BorderColor<<security>> #8E44AD
-  FontColor<<security>> #FFFFFF
-  
-  BackgroundColor<<config>> #1ABC9C
-  BorderColor<<config>> #16A085
-  FontColor<<config>> #FFFFFF
+skinparam Arrow {
+  Color #34495E
+  FontSize 11
+  FontColor #2C3E50
+  Thickness 1.5
 }
 
-' ==================== LAYERS ====================
-
-rectangle "Client Layer" #ECF0F1 {
-  component [Client\n(Postman/Browser)] as Client #34495E
+' ========== ROW 1: CLIENT ==========
+rectangle "Client Layer" #E8EAF6 {
+  rectangle "Client (Postman / Browser)" as Client #607D8B;text:white
 }
 
-rectangle "Security & Config" #ECF0F1 {
-  component [SecurityConfig] <<config>>
-  component [JwtAuthenticationFilter] <<security>>
-  component [JwtUtil] <<security>>
+' ========== ROW 2: SECURITY ==========
+rectangle "Security Layer" #FFEBEE {
+  rectangle "SecurityConfig" as SecurityConfig #C2185B;text:white
+  rectangle "JwtAuthenticationFilter" as JwtFilter #E91E63;text:white
+  rectangle "JwtUtil" as JwtUtil #880E4F;text:white
 }
 
-rectangle "Controller Layer" #ECF0F1 {
-  component [AuthController] <<controller>>
-  component [AccountController] <<controller>>
-  component [UserController] <<controller>>
+' ========== ROW 3: CONTROLLERS ==========
+rectangle "Controller Layer" #BBDEFB {
+  rectangle "AuthController\n/api/auth" as AuthCtrl #2196F3;text:white
+  rectangle "AccountController\n/api/accounts" as AccCtrl #1976D2;text:white
+  rectangle "UserController\n/api/admin" as UserCtrl #1565C0;text:white
 }
 
-rectangle "Service Layer" #ECF0F1 {
-  component [AccountService] <<service>>
-  component [UserService] <<service>>
-  component [MyUserDetailsService] <<service>>
+' ========== ROW 4: SERVICES ==========
+rectangle "Service Layer" #C8E6C9 {
+  rectangle "MyUserDetailsService" as UserDetailsSvc #2E7D32;text:white
+  rectangle "AccountService" as AccSvc #4CAF50;text:white
+  rectangle "UserService" as UserSvc #388E3C;text:white
 }
 
-rectangle "Mapper Layer" #ECF0F1 {
-  component [AccountResponseMapper] <<mapper>>
-  component [TransactionMapper] <<mapper>>
-  component [UserMapper] <<mapper>>
+' ========== ROW 5: MAPPER + DTO (side by side) ==========
+rectangle "Mapper Layer" #FFE0B2 {
+  rectangle "AccountResponseMapper" as AccMapper #FF9800;text:white
+  rectangle "TransactionMapper" as TxMapper #F57C00;text:white
+  rectangle "UserMapper" as UsrMapper #E65100;text:white
 }
 
-rectangle "DTO Layer" #ECF0F1 {
-  component [AccountResponseDTO] <<dto>>
-  component [AccountSummaryDTO] <<dto>>
-  component [TransactionResponseDTO] <<dto>>
-  component [UserSummaryDTO] <<dto>>
-  component [DepositRequestDTO] <<dto>>
-  component [WithdrawRequestDTO] <<dto>>
-  component [TransferRequestDTO] <<dto>>
+rectangle "DTO Layer" #FFCCBC {
+  rectangle "Request DTOs\nDeposit | Withdraw | Transfer" as ReqDTOs #FF8A65;text:white
+  rectangle "Response DTOs\nAccountResponse | TransactionResponse\nAccountSummary | UserSummary" as RespDTOs #FF7043;text:white
 }
 
-rectangle "Repository Layer" #ECF0F1 {
-  component [AccountRepository] <<repository>>
-  component [UserRepository] <<repository>>
-  component [TransactionRepository] <<repository>>
+' ========== ROW 6: REPOSITORIES ==========
+rectangle "Repository Layer" #FFCDD2 {
+  rectangle "UserRepository" as UserRepo #D32F2F;text:white
+  rectangle "AccountRepository" as AccRepo #F44336;text:white
+  rectangle "TransactionRepository" as TxRepo #C62828;text:white
 }
 
-rectangle "Model Layer" #ECF0F1 {
-  component [Account] <<model>>
-  component [User] <<model>>
-  component [Transaction] <<model>>
+' ========== ROW 7: MODELS ==========
+rectangle "Model / Entity Layer" #FFF3E0 {
+  rectangle "User" as UserModel #FF9800;text:white
+  rectangle "Account" as AccModel #FB8C00;text:white
+  rectangle "Transaction" as TxModel #F57C00;text:white
 }
 
-database "MySQL Database" {
-  storage "accounts table" as AccountsDB
-  storage "users table" as UsersDB
-  storage "transactions table" as TransactionsDB
+' ========== ROW 8: DATABASE ==========
+rectangle "MySQL Database" #F5F5F5 {
+  rectangle "users" as UsersTable #FFF9C4
+  rectangle "accounts" as AccountsTable #FFF9C4
+  rectangle "transactions" as TxTable #FFF9C4
 }
 
-' ==================== CONNECTIONS ====================
+' ========== ARROWS ==========
 
-' Client to Security
-Client -down-> JwtAuthenticationFilter : HTTP Request\n(Bearer Token)
-Client -down-> AuthController : /api/auth/login\n/api/auth/register
+' Row 1 -> Row 2  (Client = gray #607D8B)
+Client -[#607D8B,bold]down-> JwtFilter : HTTP Request (Bearer Token)
 
-' Security Layer
-SecurityConfig -down-> JwtAuthenticationFilter : configures
-JwtAuthenticationFilter -down-> JwtUtil : validate token
-JwtAuthenticationFilter -down-> MyUserDetailsService : load user
-JwtAuthenticationFilter -down-> AccountController : authenticate
-JwtAuthenticationFilter -down-> UserController : authenticate
+' Within Security  (Security = pink/red #E91E63)
+SecurityConfig -[#C2185B]right-> JwtFilter : configures
+JwtFilter -[#E91E63]right-> JwtUtil : validate token
 
-' Auth Controller
-AuthController -down-> MyUserDetailsService : authenticate
-AuthController -down-> JwtUtil : generate token
-AuthController -down-> UserRepository : register user
+' Row 2 -> Row 3  (Security = pink #E91E63)
+JwtFilter -[#E91E63]down-> AuthCtrl : authenticate
+JwtFilter -[#E91E63]down-> AccCtrl : authenticate
+JwtFilter -[#E91E63]down-> UserCtrl : authenticate
 
-' Controllers to Services
-AccountController -down-> AccountService
-AccountController -down-> AccountResponseMapper : transform to DTO
-UserController -down-> AccountService : getAllAccountsAdmin()
-UserController -down-> UserService : getAllUsers()
-UserController -down-> UserMapper : transform to DTO
+' Row 3 -> Row 4  (Controller = blue #1976D2)
+AuthCtrl -[#2196F3]down-> UserDetailsSvc : login
+AuthCtrl -[#2196F3]up-> JwtUtil : generate token
+AccCtrl -[#1976D2]down-> AccSvc : delegate
+UserCtrl -[#1565C0]down-> AccSvc : get all accounts
+UserCtrl -[#1565C0]down-> UserSvc : get all users
 
-' Services to Repositories
-AccountService -down-> AccountRepository
-AccountService -down-> UserRepository : find user
-AccountService -down-> TransactionRepository : log transactions
-AccountService -down-> TransactionMapper : transform to DTO
-UserService -down-> UserRepository
-MyUserDetailsService -down-> UserRepository
+' Row 4 -> Row 5  (Service = green #4CAF50)
+AccSvc -[#4CAF50]down-> TxMapper : map transactions
 
-' Mapper to DTOs
-AccountResponseMapper .down.> AccountResponseDTO : creates
-AccountResponseMapper .down.> UserSummaryDTO : uses
-TransactionMapper .down.> TransactionResponseDTO : creates
-TransactionMapper .down.> AccountSummaryDTO : creates
-TransactionMapper .down.> UserSummaryDTO : creates
-UserMapper .down.> UserSummaryDTO : creates
+' Row 3 -> Row 5  (Controller = blue #1976D2)
+AccCtrl -[#1976D2]down-> AccMapper : map response
+AccCtrl -[#1976D2]down-> TxMapper : map response
+UserCtrl -[#1565C0]down-> UsrMapper : map response
+AccCtrl -[#1976D2]down-> ReqDTOs : accepts
+AccCtrl -[#1976D2]down-> RespDTOs : returns
 
-' Mapper to Models
-AccountResponseMapper .left.> Account : reads
-AccountResponseMapper .left.> User : reads
-TransactionMapper .left.> Transaction : reads
-TransactionMapper .left.> Account : reads
-TransactionMapper .left.> User : reads
-UserMapper .left.> User : reads
+' Row 5: Mappers produce DTOs  (Mapper = orange #FF9800)
+AccMapper -[#FF9800]right-> RespDTOs : creates
+TxMapper -[#F57C00]right-> RespDTOs : creates
+UsrMapper -[#E65100]right-> RespDTOs : creates
 
-' Controllers use Request DTOs
-AccountController .down.> DepositRequestDTO : accepts
-AccountController .down.> WithdrawRequestDTO : accepts
-AccountController .down.> TransferRequestDTO : accepts
+' Row 4 -> Row 6  (Service = green #4CAF50)
+UserDetailsSvc -[#2E7D32]down-> UserRepo : findByUsername
+AccSvc -[#4CAF50]down-> AccRepo : CRUD
+AccSvc -[#4CAF50]down-> UserRepo : find owner
+AccSvc -[#4CAF50]down-> TxRepo : log transaction
+UserSvc -[#388E3C]down-> UserRepo : findAll
+AuthCtrl -[#2196F3]down-> UserRepo : register
 
-' Controllers return DTOs
-AccountController .down.> AccountResponseDTO : returns
-AccountController .down.> TransactionResponseDTO : returns
+' Row 6 -> Row 7  (Repository = red #F44336)
+UserRepo -[#D32F2F]down-> UserModel : manages
+AccRepo -[#F44336]down-> AccModel : manages
+TxRepo -[#C62828]down-> TxModel : manages
 
-' Repositories to Database
-AccountRepository -down-> AccountsDB : JPA/Hibernate
-UserRepository -down-> UsersDB : JPA/Hibernate
-TransactionRepository -down-> TransactionsDB : JPA/Hibernate
+' Row 7 -> Row 8  (Model = orange #FB8C00)
+UserModel -[#FF9800]down-> UsersTable : JPA / Hibernate
+AccModel -[#FB8C00]down-> AccountsTable : JPA / Hibernate
+TxModel -[#F57C00]down-> TxTable : JPA / Hibernate
 
-' Repositories to Models
-AccountRepository .left.> Account : manages
-UserRepository .left.> User : manages
-TransactionRepository .left.> Transaction : manages
+' FK relationships within DB  (DB = yellow/dark #B7950B)
+AccountsTable -[#B7950B,dashed]right-> UsersTable : FK user_id
+TxTable -[#B7950B,dashed]left-> AccountsTable : FK account_id
+TxTable -[#B7950B,dashed]right-> UsersTable : FK initiator_id
 
-' Model Relationships
-Account -down-> User : @ManyToOne\n(user_id FK)
-Transaction -down-> Account : @ManyToOne\n(source/target_account_id FK)
-Transaction -down-> User : @ManyToOne\n(initiator_id FK)
-
-' Database Relationships
-AccountsDB .right.> UsersDB : FK: user_id
-TransactionsDB .up.> AccountsDB : FK: source_account_id,\ntarget_account_id
-TransactionsDB .right.> UsersDB : FK: initiator_id
-
-legend top left
-  |<#3498DB>  | Controller Layer |
-  |<#2ECC71>  | Service Layer |
-  |<#16A085>  | Mapper Layer |
-  |<#E67E22>  | DTO Layer |
-  |<#E74C3C>  | Repository Layer |
-  |<#F39C12>  | Model Layer |
-  |<#9B59B6>  | Security Components |
-  |<#1ABC9C>  | Configuration |
-endlegend
+' Entity relationships  (Model = orange #FB8C00)
+AccModel -[#FB8C00,dashed]left-> UserModel : @ManyToOne
+TxModel -[#F57C00,dashed]left-> AccModel : @ManyToOne
+TxModel -[#F57C00,dashed]right-> UserModel : @ManyToOne
 
 @enduml
