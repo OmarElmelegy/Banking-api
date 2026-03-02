@@ -38,6 +38,9 @@ The system follows a layered architecture pattern with clear separation of conce
 - **Admin endpoints** for privileged operations
 - MySQL database for persistent data storage
 - **BigDecimal precision** for accurate monetary calculations
+- **Paginated transaction history** - configurable page size via query parameters
+- **Global exception handler** (`@RestControllerAdvice`) with structured JSON error responses
+- **Swagger/OpenAPI documentation** - interactive API explorer at `/swagger-ui/index.html`
 
 ## Technologies Used
 
@@ -50,6 +53,7 @@ The system follows a layered architecture pattern with clear separation of conce
 - **MySQL 8.0+** - Relational database
 - **BCrypt** - Password hashing
 - **Maven** - Dependency management and build tool
+- **springdoc-openapi 2.3.0** - Swagger/OpenAPI documentation
 
 ## Prerequisites
 
@@ -277,7 +281,6 @@ Creates a new bank account **for the authenticated user**.
 **Validation:**
 - Account holder name is required
 - Initial balance cannot be negative
-```
 
 #### 3. Deposit Money
 ```http
@@ -349,9 +352,10 @@ Withdraws money from a specified account.
 - Insufficient funds: `"Insufficient funds"`
 - Invalid amount: `"Invalid amount"`
 - Account not found: `"Account not found or insufficient funds"`
-```
+
 
 #### 5. Transfer Money Between Accounts
+
 ```http
 POST /api/accounts/transfer
 ```
@@ -385,9 +389,9 @@ Transfer successful
 
 #### 6. Get Transaction History
 ```http
-GET /api/accounts/{id}/transactions
+GET /api/accounts/{id}/transactions?page=0&size=20
 ```
-Retrieves all transactions associated with a specific account (as source or target).
+Retrieves paginated transactions associated with a specific account (as source or target), ordered by most recent first.
 
 **Authentication:** Required
 
@@ -395,6 +399,10 @@ Retrieves all transactions associated with a specific account (as source or targ
 
 **Path Parameter:**
 - `id` - Account ID
+
+**Query Parameters:**
+- `page` - Page number (0-based, default: `0`)
+- `size` - Page size (default: `20`)
 
 **Response Example:**
 ```json
@@ -603,59 +611,72 @@ Tables are automatically created by Hibernate based on JPA entities:
     - `initiator_id` references `users(id)` (Many-to-One, required)
   - Balance snapshots: `source_balance_after` and `target_balance_after` store account balances at time of transaction
 
-## Testing
+## Swagger / OpenAPI
 
-Run the tests using Maven:
+The API is documented with Swagger UI. Once the application is running, open:
 
-```bash
-./mvnw test
+```
+http://localhost:8080/swagger-ui/index.html
+```
+
+The interactive explorer allows you to authenticate with a Bearer token and test all endpoints directly from the browser. The raw OpenAPI spec is available at:
+
+```
+http://localhost:8080/v3/api-docs
 ```
 
 ## Project Structure
 
 ```
-src/
-├── main/
-│   ├── java/
-│   │   └── com/bank/api/
-│   │       ├── BankingApiApplication.java       # Main application class
-│   │       ├── config/
-│   │       │   └── SecurityConfig.java          # Spring Security configuration
-│   │       ├── controller/
-│   │       │   ├── AccountController.java       # REST endpoints for accounts
-│   │       │   ├── AuthController.java          # REST endpoints for authentication
-│   │       │   └── UserController.java          # Admin endpoints
-│   │       ├── dto/
-│   │       │   ├── AccountResponseDTO.java      # Account response DTO
-│   │       │   ├── AccountSummaryDTO.java       # Account summary DTO
-│   │       │   ├── DepositRequestDTO.java       # Deposit request DTO
-│   │       │   ├── TransactionResponseDTO.java  # Transaction response DTO
-│   │       │   ├── TransferRequestDTO.java      # Transfer request DTO
-│   │       │   ├── UserSummaryDTO.java          # User summary DTO
-│   │       │   └── WithdrawRequestDTO.java      # Withdraw request DTO
-│   │       ├── mapper/
-│   │       │   ├── AccountResponseMapper.java   # Account to DTO mapper
-│   │       │   ├── TransactionMapper.java       # Transaction to DTO mapper
-│   │       │   └── UserMapper.java              # User to DTO mapper
-│   │       ├── model/
-│   │       │   ├── Account.java                 # Account entity
-│   │       │   ├── Transaction.java             # Transaction entity
-│   │       │   └── User.java                    # User entity
-│   │       ├── repository/
-│   │       │   ├── AccountRepository.java       # Account data access layer
-│   │       │   ├── TransactionRepository.java   # Transaction data access layer
-│   │       │   └── UserRepository.java          # User data access layer
-│   │       ├── security/
-│   │       │   ├── JwtAuthenticationFilter.java # JWT filter for request authentication
-│   │       │   └── JwtUtil.java                 # JWT token generation and validation
-│   │       └── service/
-│   │           ├── AccountService.java          # Account business logic
-│   │           ├── MyUserDetailsService.java    # User authentication service
-│   │           └── UserService.java             # User management service
-│   └── resources/
-│       └── application.properties               # Application configuration
-└── test/
-    └── java/                                    # Test classes
+src/main/
+├── java/
+│   └── com/
+│       ├── bank/
+│       │   └── exception/
+│       │       ├── GlobalExceptionHandler.java      # @RestControllerAdvice – structured error responses
+│       │       ├── InsufficientFundsException.java
+│       │       ├── InvalidArgumentException.java
+│       │       ├── ResourceNotFoundException.java
+│       │       └── UnauthorizedActionException.java
+│       └── bank/api/
+│           ├── BankingApiApplication.java           # Main application class
+│           ├── config/
+│           │   ├── OpenApiConfig.java               # Swagger / OpenAPI configuration
+│           │   └── SecurityConfig.java              # Spring Security configuration
+│           ├── controller/
+│           │   ├── AccountController.java           # REST endpoints for accounts
+│           │   ├── AuthController.java              # REST endpoints for authentication
+│           │   └── UserController.java              # Admin-only endpoints
+│           ├── dto/
+│           │   ├── AccountResponseDTO.java          # Account response DTO
+│           │   ├── AccountSummaryDTO.java           # Account summary DTO
+│           │   ├── DepositRequestDTO.java           # Deposit request DTO
+│           │   ├── ErrorResponseDTO.java            # Structured error response DTO
+│           │   ├── TransactionResponseDTO.java      # Transaction response DTO
+│           │   ├── TransferRequestDTO.java          # Transfer request DTO
+│           │   ├── UserSummaryDTO.java              # User summary DTO
+│           │   └── WithdrawRequestDTO.java          # Withdraw request DTO
+│           ├── mapper/
+│           │   ├── AccountResponseMapper.java       # Account → DTO mapper
+│           │   ├── TransactionMapper.java           # Transaction → DTO mapper
+│           │   └── UserMapper.java                  # User → DTO mapper
+│           ├── model/
+│           │   ├── Account.java                     # Account entity
+│           │   ├── Transaction.java                 # Transaction entity
+│           │   └── User.java                        # User entity
+│           ├── repository/
+│           │   ├── AccountRepository.java           # Account data access layer
+│           │   ├── TransactionRepository.java       # Transaction data access layer
+│           │   └── UserRepository.java              # User data access layer
+│           ├── security/
+│           │   ├── JwtAuthenticationFilter.java     # JWT filter for request authentication
+│           │   └── JwtUtil.java                     # JWT token generation and validation
+│           └── service/
+│               ├── AccountService.java              # Account business logic
+│               ├── MyUserDetailsService.java        # UserDetailsService for Spring Security
+│               └── UserService.java                 # User management service
+└── resources/
+    └── application.properties                       # Application configuration
 ```
 
 ## Security Features
@@ -676,19 +697,29 @@ src/
 
 ## Error Handling
 
-The API handles the following error scenarios:
+All errors are handled by a global `@RestControllerAdvice` and return a consistent JSON structure:
 
-- **Account not found** - Returns 404 error when trying to access non-existent account
-- **Unauthorized account access** - Returns error when user tries to access/modify accounts they don't own
-- **Invalid amount** - Returns 400 error for negative or zero amounts
-- **Insufficient funds** - Returns error when withdrawal/transfer amount exceeds account balance
-- **Invalid account data** - Validates account holder name and balance during creation
-- **Duplicate username** - Prevents registration with existing username
-- **Unauthorized access** - Returns 401 for unauthenticated requests
-- **Transfer validation** - Prevents transfers to the same account
-- **User not found** - Returns error when authenticated user doesn't exist in database
+```json
+{
+  "timestamp": "2026-03-02T10:00:00",
+  "status": 404,
+  "error": "Not Found",
+  "message": "Account not found",
+  "path": "/api/accounts/99"
+}
+```
 
-## Testing with Postman
+| Scenario | HTTP Status |
+|---|---|
+| Account / user not found | `404 Not Found` |
+| Invalid amount or missing fields | `400 Bad Request` |
+| Insufficient funds | `400 Bad Request` |
+| User does not own the account | `403 Forbidden` |
+| Unauthenticated request | `401 Unauthorized` |
+| Duplicate username on register | `500 Internal Server Error` |
+| Transfer to same account | `400 Bad Request` |
+
+## Quick Start with Postman
 
 1. **Register a user**:
    - POST to `http://localhost:8080/api/auth/register`
@@ -704,16 +735,19 @@ The API handles the following error scenarios:
    - Select "Bearer Token"
    - Paste the JWT token
 
-4. **Test account operations**:
+4. **Use account operations**:
    - Create account: POST `/api/accounts`
    - Get accounts: GET `/api/accounts`
    - Deposit: POST `/api/accounts/1/deposit`
    - Withdraw: POST `/api/accounts/1/withdraw`
    - Transfer: POST `/api/accounts/transfer`
+   - Transaction history: GET `/api/accounts/1/transactions?page=0&size=20`
 
-5. **Test admin operations** (requires ADMIN role):
+5. **Admin operations** (requires ADMIN role):
    - Get all accounts: GET `/api/admin/accounts`
    - Get all users: GET `/api/admin/users`
+
+Alternatively, use the built-in **Swagger UI** at `http://localhost:8080/swagger-ui/index.html` — authenticate with your JWT token via the "Authorize" button.
 
 ## Future Enhancements
 
@@ -724,12 +758,12 @@ Potential improvements for this project:
 - ✅ ~~Transaction history and audit logging~~ (Implemented)
 - ✅ ~~DTOs and Mappers for clean API responses~~ (Implemented)
 - ✅ ~~Balance snapshots in transaction history~~ (Implemented)
+- ✅ ~~Implement pagination for transaction history~~ (Implemented)
+- ✅ ~~Enhanced exception handling with global error handler (@ControllerAdvice)~~ (Implemented)
+- ✅ ~~API documentation with Swagger/OpenAPI~~ (Implemented)
 - Add refresh token mechanism
-- Implement pagination for transaction history
 - Implement account types (savings, checking)
 - Add interest calculation for savings accounts
-- Enhanced exception handling with global error handler (@ControllerAdvice)
-- API documentation with Swagger/OpenAPI
 - Rate limiting and request throttling
 - Email notifications for transactions
 - Multi-currency support

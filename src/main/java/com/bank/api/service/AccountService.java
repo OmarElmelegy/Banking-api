@@ -5,9 +5,12 @@ import java.security.Principal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import com.bank.api.dto.TransactionResponseDTO;
@@ -18,6 +21,10 @@ import com.bank.api.model.User;
 import com.bank.api.repository.AccountRepository;
 import com.bank.api.repository.TransactionRepository;
 import com.bank.api.repository.UserRepository;
+import com.bank.exception.InsufficientFundsException;
+import com.bank.exception.InvalidArgumentException;
+import com.bank.exception.ResourceNotFoundException;
+import com.bank.exception.UnauthorizedActionException;
 
 import jakarta.transaction.Transactional;
 
@@ -35,15 +42,15 @@ public class AccountService {
 
     public Account createAccount(Account account, Principal principal) {
         User user = userRepository.findByUsername(principal.getName())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         // Validate account data
         if (account.getAccountHolderName() == null || account.getAccountHolderName().isBlank()) {
-            throw new RuntimeException("Account holder name is required");
+            throw new InvalidArgumentException("Account holder name is required");
         }
 
         if (account.getBalance().compareTo(BigDecimal.ZERO) < 0) {
-            throw new RuntimeException("Initial balance cannot be negative");
+            throw new InvalidArgumentException("Initial balance cannot be negative");
         }
 
         account.setUser(user);
@@ -52,7 +59,7 @@ public class AccountService {
 
     public List<Account> getAllAccounts(String username) {
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         return accountRepository.findByUserId(user.getId());
     }
@@ -66,18 +73,18 @@ public class AccountService {
         // Find the account
         Optional<Account> accountOptional = accountRepository.findById(id);
         if (!accountOptional.isPresent()) {
-            throw new RuntimeException("Account not found");
+            throw new ResourceNotFoundException("Account not found");
         }
 
         Account account = accountOptional.get();
         String currentUsername = principal.getName();
 
         if (!account.getUser().getUsername().equals(currentUsername)) {
-            throw new RuntimeException("You do not own this account");
+            throw new UnauthorizedActionException("You do not own this account");
         }
 
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Invalid amount");
+            throw new InvalidArgumentException("Invalid amount");
         }
 
         // Some math
@@ -85,7 +92,7 @@ public class AccountService {
         account.setBalance(newBalance);
 
         User initiator = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         Transaction depositTransaction = new Transaction(
                 amount,
@@ -109,29 +116,29 @@ public class AccountService {
         // Find the account
         Optional<Account> accountOptional = accountRepository.findById(id);
         if (!accountOptional.isPresent()) {
-            throw new RuntimeException("Account not found");
+            throw new ResourceNotFoundException("Account not found");
         }
 
         Account account = accountOptional.get();
         String currentUsername = principal.getName();
 
         if (!account.getUser().getUsername().equals(currentUsername)) {
-            throw new RuntimeException("You do not own this account");
+            throw new UnauthorizedActionException("You do not own this account");
         }
 
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Invalid amount");
+            throw new InvalidArgumentException("Invalid amount");
         }
 
         if (account.getBalance().compareTo(amount) < 0) {
-            throw new RuntimeException("Insufficient funds");
+            throw new InsufficientFundsException("Insufficient funds");
         }
 
         BigDecimal newBalance = account.getBalance().subtract(amount);
         account.setBalance(newBalance);
 
         User initiator = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         Transaction withdrawalTransaction = new Transaction(
                 amount,
@@ -152,29 +159,34 @@ public class AccountService {
     public void transfer(Long fromId, Long toId, BigDecimal amount, Principal principal) {
         Optional<Account> sourceAccountOptional = accountRepository.findById(fromId);
         if (!sourceAccountOptional.isPresent()) {
-            throw new RuntimeException("Sending Account not found");
+            throw new ResourceNotFoundException("Sending Account not found");
         }
 
         Account sourceAccount = sourceAccountOptional.get();
         String currentUsername = principal.getName();
 
         if (!sourceAccount.getUser().getUsername().equals(currentUsername)) {
-            throw new RuntimeException("You do not own this account");
+            throw new UnauthorizedActionException("You do not own this account");
         }
 
         Optional<Account> destinationAccountOptional = accountRepository.findById(toId);
         if (!destinationAccountOptional.isPresent()) {
-            throw new RuntimeException("Receiving Account not found");
+            throw new ResourceNotFoundException("Receiving Account not found");
         }
 
         Account destinationAccount = destinationAccountOptional.get();
 
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("Invalid amount");
+            throw new InvalidArgumentException("Invalid amount");
         }
 
         if (sourceAccount.getBalance().compareTo(amount) < 0) {
-            throw new RuntimeException("Source Account does not have enough balance");
+            throw new InsufficientFundsException("Source Account does not have enough balance");
+        }
+
+        if (fromId.equals(toId)) {
+            throw new InvalidArgumentException(
+                    "Invalid destination Id, source and destination accounts cannot be the same");
         }
 
         BigDecimal sourceNewBalance = sourceAccount.getBalance().subtract(amount);
@@ -184,7 +196,7 @@ public class AccountService {
         destinationAccount.setBalance(destinationNewBalance);
 
         User initiator = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         Transaction transferTransaction = new Transaction(
                 amount,
@@ -202,19 +214,18 @@ public class AccountService {
         accountRepository.save(destinationAccount);
     }
 
-    public List<TransactionResponseDTO> getTransationHistory(Long accountId, String username) {
+    public Page<TransactionResponseDTO> getTransationHistory(Long accountId, String username, int page, int size) {
         Account account = accountRepository.findById(accountId)
-                .orElseThrow(() -> new RuntimeException("Account not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found"));
 
         if (!account.getUser().getUsername().equals(username)) {
-            throw new RuntimeException("You do not own this account");
+            throw new UnauthorizedActionException("You do not own this account");
         }
 
-        List<Transaction> transactions = transactionRepository
-                .findBySourceAccountIdOrTargetAccountIdOrderByTimestampDesc(accountId);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "timestamp"));
+        Page<Transaction> transactions = transactionRepository
+                .findAccountTransactions(accountId, pageable);
 
-        return transactions.stream()
-                .map(TransactionMapper::toDTO)
-                .collect(Collectors.toList());
+        return transactions.map(TransactionMapper::toDTO);
     }
 }

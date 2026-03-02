@@ -21,9 +21,10 @@ rectangle "Client Layer" #E8EAF6 {
   rectangle "Client (Postman / Browser)" as Client #607D8B;text:white
 }
 
-' ========== ROW 2: SECURITY ==========
-rectangle "Security Layer" #FFEBEE {
+' ========== ROW 2: SECURITY & CONFIG ==========
+rectangle "Security & Config Layer" #FFEBEE {
   rectangle "SecurityConfig" as SecurityConfig #C2185B;text:white
+  rectangle "OpenApiConfig" as OpenApiConfig #AD1457;text:white
   rectangle "JwtAuthenticationFilter" as JwtFilter #E91E63;text:white
   rectangle "JwtUtil" as JwtUtil #880E4F;text:white
 }
@@ -33,6 +34,11 @@ rectangle "Controller Layer" #BBDEFB {
   rectangle "AuthController\n/api/auth" as AuthCtrl #2196F3;text:white
   rectangle "AccountController\n/api/accounts" as AccCtrl #1976D2;text:white
   rectangle "UserController\n/api/admin" as UserCtrl #1565C0;text:white
+}
+
+' ========== ROW 3b: EXCEPTION HANDLER ==========
+rectangle "Exception Handler" #FCE4EC {
+  rectangle "GlobalExceptionHandler\n@RestControllerAdvice" as ExHandler #C2185B;text:white
 }
 
 ' ========== ROW 4: SERVICES ==========
@@ -52,6 +58,7 @@ rectangle "Mapper Layer" #FFE0B2 {
 rectangle "DTO Layer" #FFCCBC {
   rectangle "Request DTOs\nDeposit | Withdraw | Transfer" as ReqDTOs #FF8A65;text:white
   rectangle "Response DTOs\nAccountResponse | TransactionResponse\nAccountSummary | UserSummary" as RespDTOs #FF7043;text:white
+  rectangle "ErrorResponseDTO\ntimestamp | status | message | path" as ErrDTO #BF360C;text:white
 }
 
 ' ========== ROW 6: REPOSITORIES ==========
@@ -82,12 +89,16 @@ Client -[#607D8B,bold]down-> JwtFilter : HTTP Request (Bearer Token)
 
 ' Within Security  (Security = pink/red #E91E63)
 SecurityConfig -[#C2185B]right-> JwtFilter : configures
+OpenApiConfig -[#AD1457]right-> JwtFilter : JWT scheme
 JwtFilter -[#E91E63]right-> JwtUtil : validate token
 
 ' Row 2 -> Row 3  (Security = pink #E91E63)
 JwtFilter -[#E91E63]down-> AuthCtrl : authenticate
 JwtFilter -[#E91E63]down-> AccCtrl : authenticate
 JwtFilter -[#E91E63]down-> UserCtrl : authenticate
+
+' Exception Handler wires to ErrorResponseDTO
+ExHandler -[#C2185B]down-> ErrDTO : returns
 
 ' Row 3 -> Row 4  (Controller = blue #1976D2)
 AuthCtrl -[#2196F3]down-> UserDetailsSvc : login

@@ -45,10 +45,10 @@ public class Transaction {
     @JoinColumn(name = "target_account_id")
     private Account targetAccount;
 
-    @Column(nullable = false, precision = 19, scale = 2)
+    @Column(nullable = true, precision = 19, scale = 2)
     private BigDecimal sourceBalanceAfter;
 
-    @Column(nullable = false, precision = 19, scale = 2)
+    @Column(nullable = true, precision = 19, scale = 2)
     private BigDecimal targetBalanceAfter;
 
     @ManyToOne
