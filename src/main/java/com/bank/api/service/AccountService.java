@@ -13,7 +13,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import com.bank.api.dto.AccountRequestDTO;
+import com.bank.api.dto.AccountResponseDTO;
 import com.bank.api.dto.TransactionResponseDTO;
+import com.bank.api.mapper.AccountResponseMapper;
 import com.bank.api.mapper.TransactionMapper;
 import com.bank.api.model.Account;
 import com.bank.api.model.Transaction;
@@ -40,21 +43,28 @@ public class AccountService {
     @Autowired
     private TransactionRepository transactionRepository;
 
-    public Account createAccount(Account account, Principal principal) {
+    public AccountResponseDTO createAccount(AccountRequestDTO accountRequestDTO, Principal principal) {
         User user = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         // Validate account data
-        if (account.getAccountHolderName() == null || account.getAccountHolderName().isBlank()) {
+        if (accountRequestDTO.getOwnerName() == null || accountRequestDTO.getOwnerName().isBlank()) {
             throw new InvalidArgumentException("Account holder name is required");
         }
 
-        if (account.getBalance().compareTo(BigDecimal.ZERO) < 0) {
+        if (accountRequestDTO.getAccountType() == null) {
+            throw new InvalidArgumentException("Account Type is required");
+        }
+
+        if (accountRequestDTO.getInitialBalance().compareTo(BigDecimal.ZERO) < 0) {
             throw new InvalidArgumentException("Initial balance cannot be negative");
         }
 
-        account.setUser(user);
-        return accountRepository.save(account);
+        Account account = new Account(accountRequestDTO.getOwnerName(), accountRequestDTO.getInitialBalance(), user, accountRequestDTO.getAccountType());
+
+        Account savedAccount = accountRepository.save(account);
+        AccountResponseDTO accountDTO = AccountResponseMapper.toDto(savedAccount);
+        return accountDTO;
     }
 
     public List<Account> getAllAccounts(String username) {
@@ -69,7 +79,7 @@ public class AccountService {
     }
 
     @Transactional
-    public Account deposit(Long id, BigDecimal amount, Principal principal) {
+    public AccountResponseDTO deposit(Long id, BigDecimal amount, Principal principal) {
         // Find the account
         Optional<Account> accountOptional = accountRepository.findById(id);
         if (!accountOptional.isPresent()) {
@@ -108,11 +118,13 @@ public class AccountService {
         transactionRepository.save(depositTransaction); // SAVE THE TRANSACTION!
 
         // Save and return
-        return accountRepository.save(account);
+        Account savedAccount = accountRepository.save(account);
+        AccountResponseDTO accountDTO = AccountResponseMapper.toDto(savedAccount);
+        return accountDTO;
     }
 
     @Transactional
-    public Account withdraw(Long id, BigDecimal amount, Principal principal) {
+    public AccountResponseDTO withdraw(Long id, BigDecimal amount, Principal principal) {
         // Find the account
         Optional<Account> accountOptional = accountRepository.findById(id);
         if (!accountOptional.isPresent()) {
@@ -151,8 +163,9 @@ public class AccountService {
                 initiator);
 
         transactionRepository.save(withdrawalTransaction);
-
-        return accountRepository.save(account);
+        Account savedAccount = accountRepository.save(account);
+        AccountResponseDTO accountDTO = AccountResponseMapper.toDto(savedAccount);
+        return accountDTO;
     }
 
     @Transactional

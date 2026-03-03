@@ -2,12 +2,14 @@ package com.bank.api.dto;
 
 import java.math.BigDecimal;
 
+import com.bank.api.model.Account.AccountType;
+
 public class AccountResponseDTO {
     private Long id;
     private String accountHolderName;
     private BigDecimal balance;
     private UserSummaryDTO user;
-
+    private AccountType type;
 
 
     public Long getId() {
@@ -40,5 +42,13 @@ public class AccountResponseDTO {
 
     public void setUser(UserSummaryDTO user) {
         this.user = user;
+    }
+
+    public AccountType getType() {
+        return type;
+    }
+
+    public void setType(AccountType type) {
+        this.type = type;
     }
 }

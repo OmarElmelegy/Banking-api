@@ -42,7 +42,7 @@ public class TransactionMapper {
         
         AccountSummaryDTO dto = new AccountSummaryDTO();
         dto.setId(account.getId());
-        dto.setAccountHolderName(account.getAccountHolderName());
+        dto.setAccountHolderName(account.getOwnerName());
         
         // Reuse the User mapper here to handle nesting
         dto.setUser(UserMapper.toSummaryDTO(account.getUser()));

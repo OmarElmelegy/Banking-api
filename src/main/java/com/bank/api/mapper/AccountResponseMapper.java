@@ -13,10 +13,11 @@ public class AccountResponseMapper {
         AccountResponseDTO dto = new AccountResponseDTO();
 
         dto.setId(entity.getId());
-        dto.setAccountHolderName(entity.getAccountHolderName());
+        dto.setAccountHolderName(entity.getOwnerName());
         dto.setBalance(entity.getBalance());
         dto.setUser(UserMapper.toSummaryDTO(entity.getUser()));
-
+        dto.setType(entity.getType());
+        
         return dto;
     }
 }

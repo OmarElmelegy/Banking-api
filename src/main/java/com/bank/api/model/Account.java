@@ -4,6 +4,8 @@ import java.math.BigDecimal;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -19,7 +21,7 @@ public class Account {
     @GeneratedValue(strategy = GenerationType.IDENTITY) // 3. Tells Spring: "Auto-Increment this ID"
     private Long id;
 
-    private String accountHolderName;
+    private String ownerName;
 
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal balance;
@@ -28,14 +30,31 @@ public class Account {
     @JoinColumn(name = "user_id")
     private User user;
 
+    public enum AccountType {
+        CHECKING,
+        SAVINGS
+    }
+
+    @Enumerated(EnumType.STRING)
+    private AccountType accountType;
+
+    private BigDecimal interestRate = BigDecimal.ZERO;
+
     // --- CONSTRUCTORS ---
     // Spring needs an empty constructor to work
     public Account() {
     }
 
-    public Account(String accountHolderName, BigDecimal balance) {
-        this.accountHolderName = accountHolderName;
+    public Account(String ownerName, BigDecimal balance) {
+        this.ownerName = ownerName;
         this.balance = balance;
+    }
+
+    public Account(String ownerName, BigDecimal balance, User user, AccountType accountType) {
+        this.ownerName = ownerName;
+        this.balance = balance;
+        this.user = user;
+        this.accountType = accountType;
     }
 
     // --- GETTERS AND SETTERS ---
@@ -58,12 +77,12 @@ public class Account {
         this.user = user;
     }
 
-    public String getAccountHolderName() {
-        return accountHolderName;
+    public String getOwnerName() {
+        return ownerName;
     }
 
-    public void setAccountHolderName(String accountHolderName) {
-        this.accountHolderName = accountHolderName;
+    public void setOwnerName(String ownerName) {
+        this.ownerName = ownerName;
     }
 
     public BigDecimal getBalance() {
@@ -72,5 +91,21 @@ public class Account {
 
     public void setBalance(BigDecimal balance) {
         this.balance = balance;
+    }
+
+    public AccountType getAccountType() {
+        return accountType;
+    }
+
+    public void setType(AccountType accountType) {
+        this.accountType = accountType;
+    }
+
+    public BigDecimal getInterestRate() {
+        return interestRate;
+    }
+
+    public void setInterestRate(BigDecimal interestRate) {
+        this.interestRate = interestRate;
     }
 }

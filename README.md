@@ -41,6 +41,9 @@ The system follows a layered architecture pattern with clear separation of conce
 - **Paginated transaction history** - configurable page size via query parameters
 - **Global exception handler** (`@RestControllerAdvice`) with structured JSON error responses
 - **Swagger/OpenAPI documentation** - interactive API explorer at `/swagger-ui/index.html`
+- **Account types** (CHECKING, SAVINGS) with `AccountType` enum stored as string in DB
+- **Interest rate field** on accounts (default 0, extendable for savings logic)
+- **Input validation** on `AccountRequestDTO` with `@Valid` + JSR-303 annotations
 
 ## Technologies Used
 
@@ -260,8 +263,9 @@ Creates a new bank account **for the authenticated user**.
 **Request Body:**
 ```json
 {
-  "accountHolderName": "John Doe",
-  "balance": 1000.0
+  "ownerName": "John Doe",
+  "accountType": "CHECKING",
+  "initialBalance": 1000.0
 }
 ```
 
@@ -271,6 +275,7 @@ Creates a new bank account **for the authenticated user**.
   "id": 1,
   "accountHolderName": "John Doe",
   "balance": 1000.0,
+  "type": "CHECKING",
   "user": {
     "id": 1,
     "username": "john_doe"
@@ -278,9 +283,10 @@ Creates a new bank account **for the authenticated user**.
 }
 ```
 
-**Validation:**
-- Account holder name is required
-- Initial balance cannot be negative
+**Validation (enforced via `@Valid`):**
+- `ownerName` — required, non-blank
+- `accountType` — required (`CHECKING` or `SAVINGS`)
+- `initialBalance` — required, must be ≥ 0
 
 #### 3. Deposit Money
 ```http
@@ -601,7 +607,7 @@ Tables are automatically created by Hibernate based on JPA entities:
 - **users** - Stores user credentials and roles
   - Columns: `id`, `username` (unique), `password` (BCrypt hashed), `role`
 - **accounts** - Stores bank account information
-  - Columns: `id`, `account_holder_name`, `balance`, `user_id`
+  - Columns: `id`, `owner_name`, `balance`, `user_id`, `account_type` (CHECKING/SAVINGS), `interest_rate`
   - Foreign key: `user_id` references `users(id)` (Many-to-One relationship)
 - **transactions** - Stores transaction history for all operations
   - Columns: `id`, `amount` (BigDecimal), `type` (DEPOSIT/WITHDRAWAL/TRANSFER), `timestamp`, `source_account_id`, `target_account_id`, `source_balance_after`, `target_balance_after`, `initiator_id`
@@ -648,6 +654,7 @@ src/main/
 │           │   ├── AuthController.java              # REST endpoints for authentication
 │           │   └── UserController.java              # Admin-only endpoints
 │           ├── dto/
+│           │   ├── AccountRequestDTO.java           # Account creation request DTO (validated)
 │           │   ├── AccountResponseDTO.java          # Account response DTO
 │           │   ├── AccountSummaryDTO.java           # Account summary DTO
 │           │   ├── DepositRequestDTO.java           # Deposit request DTO
@@ -761,8 +768,9 @@ Potential improvements for this project:
 - ✅ ~~Implement pagination for transaction history~~ (Implemented)
 - ✅ ~~Enhanced exception handling with global error handler (@ControllerAdvice)~~ (Implemented)
 - ✅ ~~API documentation with Swagger/OpenAPI~~ (Implemented)
+- ✅ ~~Implement account types (savings, checking)~~ (Implemented — `CHECKING` / `SAVINGS` enum)
+- ✅ ~~Input validation on request DTOs~~ (Implemented — `@Valid` + JSR-303)
 - Add refresh token mechanism
-- Implement account types (savings, checking)
 - Add interest calculation for savings accounts
 - Rate limiting and request throttling
 - Email notifications for transactions

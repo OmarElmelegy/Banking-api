@@ -56,7 +56,7 @@ rectangle "Mapper Layer" #FFE0B2 {
 }
 
 rectangle "DTO Layer" #FFCCBC {
-  rectangle "Request DTOs\nDeposit | Withdraw | Transfer" as ReqDTOs #FF8A65;text:white
+  rectangle "Request DTOs\nAccountRequest | Deposit | Withdraw | Transfer" as ReqDTOs #FF8A65;text:white
   rectangle "Response DTOs\nAccountResponse | TransactionResponse\nAccountSummary | UserSummary" as RespDTOs #FF7043;text:white
   rectangle "ErrorResponseDTO\ntimestamp | status | message | path" as ErrDTO #BF360C;text:white
 }
@@ -71,7 +71,7 @@ rectangle "Repository Layer" #FFCDD2 {
 ' ========== ROW 7: MODELS ==========
 rectangle "Model / Entity Layer" #FFF3E0 {
   rectangle "User" as UserModel #FF9800;text:white
-  rectangle "Account" as AccModel #FB8C00;text:white
+  rectangle "Account\ntype: CHECKING | SAVINGS\ninterestRate: BigDecimal" as AccModel #FB8C00;text:white
   rectangle "Transaction" as TxModel #F57C00;text:white
 }
 

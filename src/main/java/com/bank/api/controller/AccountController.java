@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.bank.api.dto.AccountRequestDTO;
 import com.bank.api.dto.AccountResponseDTO;
 import com.bank.api.dto.DepositRequestDTO;
 import com.bank.api.dto.TransactionResponseDTO;
@@ -25,6 +26,8 @@ import com.bank.api.mapper.AccountResponseMapper;
 import com.bank.api.model.Account;
 import com.bank.api.service.AccountService;
 import com.bank.exception.InvalidArgumentException;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/accounts")
@@ -45,31 +48,31 @@ public class AccountController {
     }
 
     @PostMapping
-    public ResponseEntity<AccountResponseDTO> createAccount(@RequestBody Account newAccount, Principal principal) {
-        Account created = service.createAccount(newAccount, principal);
-        AccountResponseDTO responseDTO = AccountResponseMapper.toDto(created);
-        return ResponseEntity.status(HttpStatus.CREATED).body(responseDTO);
+    public ResponseEntity<AccountResponseDTO> createAccount(@Valid @RequestBody AccountRequestDTO request,
+            Principal principal) {
+        AccountResponseDTO accountDTO =  service.createAccount(request, principal);
+        return ResponseEntity.status(HttpStatus.CREATED).body(accountDTO);
     }
 
     @PostMapping("/{id}/deposit")
-    public ResponseEntity<Account> deposit(@PathVariable Long id, @RequestBody DepositRequestDTO request,
+    public ResponseEntity<AccountResponseDTO> deposit(@PathVariable Long id, @RequestBody DepositRequestDTO request,
             Principal principal) {
         if (request.getAmount() == null) {
             throw new InvalidArgumentException("Amount is required");
         }
-    
-        Account account = service.deposit(id, request.getAmount(), principal);
+
+        AccountResponseDTO account = service.deposit(id, request.getAmount(), principal);
         return ResponseEntity.ok(account);
     }
 
     @PostMapping("/{id}/withdraw")
-    public ResponseEntity<Account> withdraw(@PathVariable Long id, @RequestBody WithdrawRequestDTO request,
+    public ResponseEntity<AccountResponseDTO> withdraw(@PathVariable Long id, @RequestBody WithdrawRequestDTO request,
             Principal principal) {
         if (request.getAmount() == null) {
             throw new InvalidArgumentException("Amount is required");
         }
-        
-        Account account = service.withdraw(id, request.getAmount(), principal);
+
+        AccountResponseDTO account = service.withdraw(id, request.getAmount(), principal);
         return ResponseEntity.ok(account);
     }
 
@@ -78,13 +81,14 @@ public class AccountController {
         if (request.getFromId() == null || request.getToId() == null || request.getAmount() == null) {
             throw new InvalidArgumentException("Missing required parameters");
         }
-        
+
         service.transfer(request.getFromId(), request.getToId(), request.getAmount(), principal);
         return ResponseEntity.ok("Transfer successful");
     }
 
     @GetMapping("/{id}/transactions")
-    public ResponseEntity<Page<TransactionResponseDTO>> getHistory(@PathVariable Long id, Principal principal, @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
+    public ResponseEntity<Page<TransactionResponseDTO>> getHistory(@PathVariable Long id, Principal principal,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size) {
         Page<TransactionResponseDTO> transactions = service.getTransationHistory(id, principal.getName(), page, size);
 
         return ResponseEntity.ok(transactions);
