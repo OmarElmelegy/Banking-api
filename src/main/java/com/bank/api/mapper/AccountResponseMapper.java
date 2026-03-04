@@ -16,7 +16,7 @@ public class AccountResponseMapper {
         dto.setAccountHolderName(entity.getOwnerName());
         dto.setBalance(entity.getBalance());
         dto.setUser(UserMapper.toSummaryDTO(entity.getUser()));
-        dto.setType(entity.getType());
+        dto.setType(entity.getAccountType());
         
         return dto;
     }

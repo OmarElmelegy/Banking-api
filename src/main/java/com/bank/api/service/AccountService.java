@@ -19,6 +19,7 @@ import com.bank.api.dto.TransactionResponseDTO;
 import com.bank.api.mapper.AccountResponseMapper;
 import com.bank.api.mapper.TransactionMapper;
 import com.bank.api.model.Account;
+import com.bank.api.model.Account.AccountType;
 import com.bank.api.model.Transaction;
 import com.bank.api.model.User;
 import com.bank.api.repository.AccountRepository;
@@ -60,7 +61,19 @@ public class AccountService {
             throw new InvalidArgumentException("Initial balance cannot be negative");
         }
 
-        Account account = new Account(accountRequestDTO.getOwnerName(), accountRequestDTO.getInitialBalance(), user, accountRequestDTO.getAccountType());
+        Account account = new Account(
+                accountRequestDTO.getOwnerName(),
+                accountRequestDTO.getInitialBalance(),
+                user,
+                accountRequestDTO.getAccountType());
+
+        if (account.getAccountType() == AccountType.SAVINGS) {
+            // Set a default interest rate for savings accounts (e.g., 4.5%)
+            account.setInterestRate(new BigDecimal("0.045"));
+        } else {
+            // Checking accounts get 0% interest
+            account.setInterestRate(BigDecimal.ZERO);
+        }
 
         Account savedAccount = accountRepository.save(account);
         AccountResponseDTO accountDTO = AccountResponseMapper.toDto(savedAccount);

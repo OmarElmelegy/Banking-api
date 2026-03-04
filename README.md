@@ -42,7 +42,9 @@ The system follows a layered architecture pattern with clear separation of conce
 - **Global exception handler** (`@RestControllerAdvice`) with structured JSON error responses
 - **Swagger/OpenAPI documentation** - interactive API explorer at `/swagger-ui/index.html`
 - **Account types** (CHECKING, SAVINGS) with `AccountType` enum stored as string in DB
-- **Interest rate field** on accounts (default 0, extendable for savings logic)
+- **Interest rate** auto-assigned on account creation (SAVINGS: 4.5% annual, CHECKING: 0%)
+- **Scheduled interest job** (`InterestJobService`) — calculates and pays monthly interest to all SAVINGS accounts, logs each payout as an `INTEREST` transaction
+- **`@EnableScheduling`** enabled on the main application class
 - **Input validation** on `AccountRequestDTO` with `@Valid` + JSR-303 annotations
 
 ## Technologies Used
@@ -495,6 +497,7 @@ Retrieves paginated transactions associated with a specific account (as source o
 - `DEPOSIT` - Money added to account (no source account)
 - `WITHDRAWAL` - Money removed from account (no target account)
 - `TRANSFER` - Money moved between accounts (both source and target present)
+- `INTEREST` - Monthly interest payout credited to a SAVINGS account (no source account, no initiator)
 
 ### Admin Endpoints
 
@@ -610,7 +613,7 @@ Tables are automatically created by Hibernate based on JPA entities:
   - Columns: `id`, `owner_name`, `balance`, `user_id`, `account_type` (CHECKING/SAVINGS), `interest_rate`
   - Foreign key: `user_id` references `users(id)` (Many-to-One relationship)
 - **transactions** - Stores transaction history for all operations
-  - Columns: `id`, `amount` (BigDecimal), `type` (DEPOSIT/WITHDRAWAL/TRANSFER), `timestamp`, `source_account_id`, `target_account_id`, `source_balance_after`, `target_balance_after`, `initiator_id`
+  - Columns: `id`, `amount` (BigDecimal), `type` (DEPOSIT/WITHDRAWAL/TRANSFER/INTEREST), `timestamp`, `source_account_id`, `target_account_id`, `source_balance_after`, `target_balance_after`, `initiator_id`
   - Foreign keys: 
     - `source_account_id` references `accounts(id)` (Many-to-One)
     - `target_account_id` references `accounts(id)` (Many-to-One)
@@ -679,8 +682,7 @@ src/main/
 │           │   ├── JwtAuthenticationFilter.java     # JWT filter for request authentication
 │           │   └── JwtUtil.java                     # JWT token generation and validation
 │           └── service/
-│               ├── AccountService.java              # Account business logic
-│               ├── MyUserDetailsService.java        # UserDetailsService for Spring Security
+│               ├── AccountService.java              # Account business logic               ├── InterestJobService.java          # Scheduled monthly interest payments for SAVINGS accounts│               ├── MyUserDetailsService.java        # UserDetailsService for Spring Security
 │               └── UserService.java                 # User management service
 └── resources/
     └── application.properties                       # Application configuration
@@ -770,8 +772,9 @@ Potential improvements for this project:
 - ✅ ~~API documentation with Swagger/OpenAPI~~ (Implemented)
 - ✅ ~~Implement account types (savings, checking)~~ (Implemented — `CHECKING` / `SAVINGS` enum)
 - ✅ ~~Input validation on request DTOs~~ (Implemented — `@Valid` + JSR-303)
+- ✅ ~~Add interest calculation for savings accounts~~ (Implemented — 4.5% annual, auto-assigned on SAVINGS account creation)
+- ✅ ~~Scheduled jobs for interest calculations~~ (Implemented — `InterestJobService` with `@Scheduled`)
 - Add refresh token mechanism
-- Add interest calculation for savings accounts
 - Rate limiting and request throttling
 - Email notifications for transactions
 - Multi-currency support
@@ -779,7 +782,6 @@ Potential improvements for this project:
 - Token refresh endpoint
 - Password reset functionality
 - Transaction search and filtering
-- Scheduled jobs for interest calculations
 
 ## License
 

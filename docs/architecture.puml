@@ -46,6 +46,7 @@ rectangle "Service Layer" #C8E6C9 {
   rectangle "MyUserDetailsService" as UserDetailsSvc #2E7D32;text:white
   rectangle "AccountService" as AccSvc #4CAF50;text:white
   rectangle "UserService" as UserSvc #388E3C;text:white
+  rectangle "InterestJobService\n@Scheduled" as InterestSvc #1B5E20;text:white
 }
 
 ' ========== ROW 5: MAPPER + DTO (side by side) ==========
@@ -129,6 +130,8 @@ AccSvc -[#4CAF50]down-> UserRepo : find owner
 AccSvc -[#4CAF50]down-> TxRepo : log transaction
 UserSvc -[#388E3C]down-> UserRepo : findAll
 AuthCtrl -[#2196F3]down-> UserRepo : register
+InterestSvc -[#1B5E20]down-> AccRepo : findBySavings
+InterestSvc -[#1B5E20]down-> TxRepo : log INTEREST tx
 
 ' Row 6 -> Row 7  (Repository = red #F44336)
 UserRepo -[#D32F2F]down-> UserModel : manages

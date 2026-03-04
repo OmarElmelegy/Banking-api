@@ -31,7 +31,8 @@ public class Transaction {
     public enum TransactionType {
         DEPOSIT,
         WITHDRAWAL,
-        TRANSFER
+        TRANSFER,
+        INTEREST
     }
 
     @Column(nullable = false)
